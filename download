@@ -1,0 +1,6 @@
+# Copias de seguridad, actas y datos: NUNCA deben subirse al repositorio (es público)
+montmelo-cb-*.json
+*.json
+!package.json
+*.pdf
+*.csv

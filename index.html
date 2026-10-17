@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestor Mini Básquet - Montmeló CB</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#d84315">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mini Montmeló">
+<script>try{if(localStorage.getItem("montmelo_cb_pin"))document.documentElement.classList.add("locked")}catch(e){}</script>
+<style>
+:root {
+  --primary: #d84315;
+  --primary-dark: #bf360c;
+  --primary-light: #fbe9e7;
+  --secondary: #1e88e5;
+  --secondary-light: #e3f2fd;
+  --ok: #2e7d32;
+  --ok-light: #e8f5e9;
+  --bad: #c62828;
+  --bad-light: #ffebee;
+  --bg: #f8f9fa;
+  --card: #ffffff;
+  --text: #1a1a1a;
+  --text-muted: #6c757d;
+  --line: #e9ecef;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); margin: 0; color: var(--text); line-height: 1.5; }
+
+/* HEADER & SANDWICH MENU */
+header {
+  background: var(--card);
+  color: var(--text);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 250;
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+
+.header-title {
+  display: flex;
+  flex-direction: column;
+}
+
+.header-title h1 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: -0.3px;
+}
+
+.header-title span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* HAMBURGER BUTTON */
+.menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  border-radius: 8px;
+  transition: background 0.2s;
+  z-index: 201;
+}
+
+.menu-btn:hover { background: var(--bg); }
+
+.menu-btn span {
+  width: 20px;
+  height: 2px;
+  background: var(--text);
+  border-radius: 2px;
+  transition: transform 0.3s, opacity 0.3s;
+}
+
+.menu-btn.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.menu-btn.open span:nth-child(2) { opacity: 0; }
+.menu-btn.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* SIDEBAR DRAWER NAV */
+.nav-backdrop {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 150;
+  display: none;
+}
+
+.nav-backdrop.open { display: block; }
+
+nav {
+  position: fixed;
+  top: 0; right: 0; width: 280px; height: 100%;
+  background: var(--card);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  padding: 80px 16px 24px 16px;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in-out;
+}
+
+nav.open { transform: translateX(0); }
+
+.nav-header {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.8px;
+  margin-bottom: 16px;
+  padding-left: 12px;
+}
+
+nav button {
+  width: 100%;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+  margin-bottom: 6px;
+  transition: all 0.2s;
+}
+
+nav button:hover { background: var(--bg); }
+
+nav button.active {
+  background: var(--primary-light);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* LAYOUT & CARDS */
+.tab { display: none; padding: 20px 16px; max-width: 900px; margin: 0 auto; }
+.tab.active { display: block; }
+
+.card {
+  background: var(--card);
+  padding: 20px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+  border: 1px solid var(--line);
+}
+
+h2 { margin: 0 0 12px; font-size: 1.25rem; font-weight: 700; letter-spacing: -0.3px; }
+h3 { margin: 0 0 12px; font-size: 1.05rem; font-weight: 600; }
+h4 { margin: 16px 0 8px; font-size: 0.95rem; font-weight: 600; color: var(--text-muted); }
+
+/* INPUTS & BUTTONS */
+input, select, textarea {
+  width: 100%;
+  padding: 12px 14px;
+  margin: 6px 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--text);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--card);
+}
+
+button.btn-action, button.main, button.blue, button.danger, button.ok {
+  font: inherit;
+  padding: 12px 18px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  width: 100%;
+  margin: 6px 0;
+  transition: transform 0.1s, opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+button:active { transform: scale(0.98); }
+
+.main { background: var(--primary); color: #fff; }
+.blue { background: var(--secondary); color: #fff; }
+.danger { background: var(--bad); color: #fff; }
+.ok { background: var(--ok); color: #fff; }
+
+.row { display: flex; gap: 12px; flex-wrap: wrap; }
+.row > * { flex: 1; min-width: 140px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+
+.box {
+  border: 1px solid var(--line);
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  transition: border-color 0.2s;
+}
+
+.box h4 { margin: 0 0 8px; color: var(--text); }
+
+.tag {
+  display: inline-block;
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  padding: 5px 10px;
+  margin: 3px 2px;
+  border-radius: 6px;
+  font-size: 0.85em;
+  font-weight: 700;
+}
+
+/* TABLES */
+.wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--line); margin-top: 12px; }
+table { width: 100%; border-collapse: collapse; background: var(--card); }
+th, td { padding: 10px 12px; text-align: center; border-bottom: 1px solid var(--line); font-size: 0.9rem; }
+th { background: var(--bg); font-weight: 600; color: var(--text-muted); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; }
+td.l { text-align: left; font-weight: 500; }
+tr:last-child td { border-bottom: none; }
+
+.chk { width: 20px; height: 20px; margin: 0; cursor: pointer; accent-color: var(--primary); }
+.pts { width: 60px; padding: 6px; margin: 0; text-align: center; background: var(--card); }
+
+/* UTILITY CLASSES */
+.msg { padding: 12px 16px; border-radius: 8px; margin: 12px 0; font-size: 0.9rem; background: var(--primary-light); color: var(--primary-dark); font-weight: 500; }
+.msg.err { background: var(--bad-light); color: var(--bad); }
+.msg.good { background: var(--ok-light); color: var(--ok); }
+
+.badge { display: inline-block; padding: 3px 10px; border-radius: 12px; color: #fff; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.muted { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
+pre { white-space: pre-wrap; font-size: 0.75em; max-height: 200px; overflow: auto; background: var(--bg); padding: 12px; border-radius: 8px; border: 1px solid var(--line); }
+details { margin-top: 10px; }
+summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor: pointer; padding: 4px 0; }
+#lock { display: none; position: fixed; inset: 0; z-index: 9999; background: var(--bg); flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+.locked #lock { display: flex; }
+#lock input { max-width: 220px; text-align: center; font-size: 1.4rem; letter-spacing: 6px; }
+.opt { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 0.9rem; color: var(--text-muted); }
+.opt .chk { flex: none; margin: 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">
+    <h1>Montmeló CB</h1>
+    <span id="active-tab-label">Plantilla</span>
+  </div>
+  <button class="menu-btn" id="menuBtn" onclick="toggleMenu()" aria-label="Abrir menú">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+</header>
+
+<div id="lock">
+  <h2>Montmeló CB</h2>
+  <p class="muted">Introduce tu PIN para continuar</p>
+  <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')desbloquear()">
+  <button class="main" style="max-width:220px" onclick="desbloquear()">Entrar</button>
+  <p class="muted" id="pinError" style="color:var(--bad)"></p>
+</div>
+
+<div id="bannerCopia" class="msg" style="display:none; margin:12px 16px; cursor:pointer" onclick="copiaSeguridad()"></div>
+
+<div class="nav-backdrop" id="navBackdrop" onclick="toggleMenu()"></div>
+
+<nav id="sideNav">
+  <div class="nav-header">Navegación</div>
+  <button id="btn-tab-equipos" class="active" onclick="navigateTo('tab-equipos', 'Plantilla')">Plantilla</button>
+  <button id="btn-tab-propuesta" onclick="navigateTo('tab-propuesta', 'Propuesta de Alineación')">Propuesta</button>
+  <button id="btn-tab-resultado" onclick="navigateTo('tab-resultado', 'Registro del Partido')">Registro del Partido</button>
+  <button id="btn-tab-partidos-guardados" onclick="navigateTo('tab-partidos-guardados', 'Histórico de Partidos')">Histórico</button>
+</nav>
+
+<!-- PLANTILLA -->
+<div id="tab-equipos" class="tab active">
+  <div class="card">
+    <h2>Plantilla</h2>
+    <p class="muted">Desmarca la casilla «Disp.» para indicar los jugadores no disponibles para el próximo partido.</p>
+    <div id="avisoVacio" class="msg" style="display:none">Aún no hay jugadores. Añádelos abajo o restaura una copia de seguridad desde «Histórico».</div>
+    <div class="wrap"><table>
+      <thead><tr><th>Disp.</th><th>#</th><th>Jugador/a</th><th>Partidos</th><th>Periodos</th><th>Puntos</th><th>Pts/periodo</th><th></th></tr></thead>
+      <tbody id="tablaJugadores"></tbody>
+    </table></div>
+
+    <h4>Añadir jugador/a</h4>
+    <div class="row">
+      <input id="nombreJugador" placeholder="Nombre completo">
+      <input type="number" id="dorsalJugador" placeholder="Dorsal">
+    </div>
+    <button class="blue" onclick="agregarJugador()">Añadir a la plantilla</button>
+
+    <div style="margin-top:24px; border-top:1px solid var(--line); padding-top:16px">
+      <label for="modoReparto"><b>Modo de reparto</b></label>
+      <select id="modoReparto" onchange="cambiarModo(this.value)">
+        <option value="comp">Competitivo</option>
+        <option value="eq">Equilibrio</option>
+        <option value="equi">Equitativo</option>
+      </select>
+      <p class="muted" id="descModo" style="margin-top:-6px; margin-bottom:14px"></p>
+
+      <label for="rivalInputP1"><b>Próximo rival</b></label>
+      <input id="rivalInputP1" placeholder="Nombre del equipo rival">
+      <button class="main" onclick="generarAlineacionNuevoPartido()">Generar propuesta de alineación</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROPUESTA -->
+<div id="tab-propuesta" class="tab">
+  <div class="card">
+    <h2>Propuesta de quintetos (8 periodos)</h2>
+    <h3 id="tituloRivalPropuesta" style="color:var(--secondary); margin-top:0">Rival: Sin definir</h3>
+    <div id="notaPropuesta" class="muted"></div>
+
+    <div id="modoPartido" class="box" style="margin:16px 0; border:2px solid var(--primary)">
+      <div id="periodoActual"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="blue" onclick="movPeriodo(-1)">Anterior</button>
+        <button class="main" onclick="movPeriodo(1)">Siguiente</button>
+      </div>
+    </div>
+
+    <div id="contenedorPeriodos" class="grid"></div>
+    <div id="resumenPropuesta" class="muted" style="margin-top:14px"></div>
+    <button class="blue" id="btnRegenerar" onclick="generarAlineacionNuevoPartido(true)" style="display:none; margin-top:12px">Generar alternativa</button>
+  </div>
+</div>
+
+<!-- REGISTRO DEL PARTIDO -->
+<div id="tab-resultado" class="tab">
+  <div class="card">
+    <h2>Registro del partido</h2>
+    <label for="actaFile"><b>Cargar e-Acta FCBQ (PDF)</b></label>
+    <input type="file" id="actaFile" accept="application/pdf" onchange="leerActa(this.files[0])">
+    <div id="actaEstado" class="muted">Procesamiento local inmediato en tu navegador. Comprueba siempre los datos extraídos.</div>
+    <details><summary>Ver datos de lectura directa</summary><pre id="actaTexto"></pre></details>
+  </div>
+
+  <div class="card">
+    <h3>Periodos y puntos por jugador</h3>
+    <div class="wrap"><table>
+      <thead><tr><th>Jugador</th><th>1r</th><th>2n</th><th>3r</th><th>4t</th><th>5è</th><th>6è</th><th>7è</th><th>8è</th><th>Pts</th></tr></thead>
+      <tbody id="tablaRegistroRapido"></tbody>
+    </table></div>
+  </div>
+
+  <div id="rivalActa"></div>
+
+  <div class="card">
+    <h3>Datos y resultado final</h3>
+    <div class="row">
+      <div><label for="inputRivalGuardar"><b>Rival</b></label><input id="inputRivalGuardar" placeholder="Ej: CB LES FRANQUESES"></div>
+      <div><label for="selectCondicion"><b>Condición</b></label><select id="selectCondicion"><option>Local (Equip A)</option><option>Visitante (Equip B)</option></select></div>
+    </div>
+    <label for="fechaPartido"><b>Fecha del partido</b></label><input id="fechaPartido" placeholder="dd/mm/aaaa">
+    <div class="row">
+      <div><label for="puntosFavor"><b>Puntos Montmeló CB</b></label><input type="number" id="puntosFavor"></div>
+      <div><label for="puntosRival"><b>Puntos Rival</b></label><input type="number" id="puntosRival"></div>
+    </div>
+    <textarea id="notasRival" placeholder="Observaciones tácticas o notas sobre el partido"></textarea>
+    <button class="ok" onclick="guardarPartidoEnHistorico()">Guardar en el histórico</button>
+  </div>
+</div>
+
+<!-- HISTÓRICO -->
+<div id="tab-partidos-guardados" class="tab">
+  <div class="card">
+    <h2>Histórico de partidos</h2>
+    <div id="listaHistorico"></div>
+    <button class="danger" onclick="borrarTodoElHistorico()">Vaciar histórico</button>
+  </div>
+
+  <div class="card">
+    <h3>Copias de seguridad</h3>
+    <p class="muted" id="estadoCopia"></p>
+    <div class="row">
+      <button class="blue" onclick="copiaSeguridad()">Hacer copia ahora</button>
+      <button class="blue" onclick="$('importFile').click()">Restaurar copia</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importar(this.files[0])">
+    <label class="opt"><input type="checkbox" class="chk" id="autoCopia" onchange="setMeta({auto:this.checked})"> Ofrecer una copia al guardar cada partido</label>
+    <label class="opt"><input type="checkbox" class="chk" id="cifrarCopia" onchange="setMeta({cifrar:this.checked})"> Cifrar las copias con contraseña</label>
+    <p class="muted">En el móvil, la copia abre el menú de compartir: guárdala en Drive o envíatela a ti mismo. Sin copia, borrar los datos del navegador elimina todo. No subas nunca estos archivos al repositorio.</p>
+  </div>
+
+  <div class="card">
+    <h3>Privacidad</h3>
+    <p class="muted">Los nombres y resultados se guardan solo en este dispositivo. La página no envía datos a ningún servidor.</p>
+    <div class="row">
+      <button class="blue" id="btnPin" onclick="alternarPin()">Activar bloqueo con PIN</button>
+      <button class="danger" onclick="borrarDatosDispositivo()">Borrar todos los datos de este dispositivo</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+/* ---------- UI NAVIGATION (SANDWICH MENU) ---------- */
+function toggleMenu() {
+  const menuBtn = document.getElementById('menuBtn');
+  const sideNav = document.getElementById('sideNav');
+  const backdrop = document.getElementById('navBackdrop');
+
+  menuBtn.classList.toggle('open');
+  sideNav.classList.toggle('open');
+  backdrop.classList.toggle('open');
+}
+
+function navigateTo(tabId, title) {
+  showTab(tabId);
+  document.getElementById('active-tab-label').textContent = title;
+  toggleMenu();
+}
+
+/* ---------- CORE LOGIC ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+const KEY = 'montmelo_cb_db';
+
+const defaults = () => ({ jugadores: [], partidos: [], propuestaActual: null });
+
+let appState, hadLocal = false;
+try { const raw = localStorage.getItem(KEY); hadLocal = !!raw; appState = JSON.parse(raw) || defaults(); } catch (e) { appState = defaults(); }
+appState.jugadores.forEach(j => { if (j.disponible === undefined) j.disponible = true; });
+
+/* ---------- Datos locales, copias de seguridad y privacidad ----------
+   Todo se guarda en este dispositivo (localStorage + copia interna en IndexedDB). No se envía nada a ningún servidor. */
+const META = 'montmelo_cb_meta', PINK = 'montmelo_cb_pin';
+const meta = () => { try { return JSON.parse(localStorage.getItem(META)) || {}; } catch (e) { return {}; } };
+const setMeta = o => { try { localStorage.setItem(META, JSON.stringify({...meta(), ...o})); } catch (e) {} };
+
+const idb = () => new Promise((ok, ko) => { const r = indexedDB.open('montmelo_cb', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
+async function idbSet(v) { try { (await idb()).transaction('kv', 'readwrite').objectStore('kv').put(v, 'estado'); } catch (e) {} }
+async function idbGet() { try { const d = await idb(); return await new Promise(ok => { const q = d.transaction('kv').objectStore('kv').get('estado'); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); }); } catch (e) { return null; } }
+
+const b64 = u => { let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); };
+const ub64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function claveDe(pass, salt) {
+  const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256'}, k, {name: 'AES-GCM', length: 256}, false, ['encrypt', 'decrypt']);
+}
+async function cifrar(txt, pass) {
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({name: 'AES-GCM', iv}, await claveDe(pass, salt), new TextEncoder().encode(txt)));
+  return {v: 2, cifrado: true, salt: b64(salt), iv: b64(iv), datos: b64(ct)};
+}
+async function descifrar(env, pass) {
+  return new TextDecoder().decode(await crypto.subtle.decrypt({name: 'AES-GCM', iv: ub64(env.iv)}, await claveDe(pass, ub64(env.salt)), ub64(env.datos)));
+}
+
+function saveState() {
+  try { localStorage.setItem(KEY, JSON.stringify(appState)); }
+  catch (e) { alert('No se han podido guardar los datos en este navegador.'); }
+  setMeta({modificado: Date.now()});
+  idbSet(appState);
+}
+
+function descargar(f) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+async function copiaSeguridad() {
+  let txt = JSON.stringify({v: 2, fecha: new Date().toISOString(), datos: appState}), cif = false;
+  if (meta().cifrar) {
+    const pass = prompt('Contraseña para cifrar la copia (no se guarda en ningún sitio; si la pierdes, no se podrá recuperar):');
+    if (!pass) return;
+    if (!(window.crypto && crypto.subtle)) { alert('Este navegador no permite cifrar. Desactiva el cifrado o abre la app con https.'); return; }
+    txt = JSON.stringify(await cifrar(txt, pass)); cif = true;
+  }
+  const f = new File([txt], `montmelo-cb-${new Date().toISOString().slice(0, 10)}${cif ? '-cifrada' : ''}.json`, {type: 'application/json'});
+  try {
+    if (navigator.canShare && navigator.canShare({files: [f]})) await navigator.share({files: [f], title: 'Copia de seguridad Montmeló CB'});
+    else descargar(f);
+  } catch (e) { if (e.name === 'AbortError') return; descargar(f); }
+  setMeta({ultimaCopia: Date.now()}); actualizarCopia();
+}
+
+async function importar(file) {
+  if (!file) return;
+  try {
+    let d = JSON.parse(await file.text());
+    if (d.cifrado) {
+      const pass = prompt('Contraseña de la copia:'); if (!pass) return;
+      d = JSON.parse(await descifrar(d, pass));
+    }
+    d = d.datos || d;
+    if (!Array.isArray(d.jugadores) || !Array.isArray(d.partidos)) throw 0;
+    if (!confirm('Esto reemplazará los datos actuales de este dispositivo. ¿Continuar?')) return;
+    appState = d; appState.jugadores.forEach(j => { if (j.disponible === undefined) j.disponible = true; });
+    saveState(); setMeta({ultimaCopia: Date.now()}); renderHistorico(); renderPlantilla();
+  } catch (e) { alert('No se ha podido leer la copia: el archivo no es válido o la contraseña es incorrecta.'); }
+  $('importFile').value = '';
+}
+
+function actualizarCopia() {
+  const m = meta(), dias = m.ultimaCopia ? Math.floor((Date.now() - m.ultimaCopia) / 864e5) : null;
+  const hayDatos = appState.partidos.length > 0;
+  const txt = m.ultimaCopia ? `Última copia: ${new Date(m.ultimaCopia).toLocaleDateString('es-ES')} (hace ${dias} ${dias === 1 ? 'día' : 'días'}).` : 'Todavía no has hecho ninguna copia.';
+  if ($('estadoCopia')) $('estadoCopia').textContent = txt;
+  if ($('autoCopia')) { $('autoCopia').checked = m.auto !== false; $('cifrarCopia').checked = !!m.cifrar; }
+  const b = $('bannerCopia'); b.style.display = hayDatos && (dias === null || dias >= 7) ? 'block' : 'none';
+  b.textContent = dias === null ? 'Aún no tienes copia de seguridad. Toca aquí para hacerla.' : `Hace ${dias} días que no haces copia. Toca aquí para hacerla.`;
+}
+
+/* Bloqueo con PIN: oculta la app en pantalla. No cifra los datos guardados (para eso están las copias cifradas). */
+async function hashPin(pin, salt) {
+  const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveBits']);
+  return b64(new Uint8Array(await crypto.subtle.deriveBits({name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256'}, k, 256)));
+}
+async function pinCorrecto(pin) {
+  try { const p = JSON.parse(localStorage.getItem(PINK)); return !!p && await hashPin(pin || '', ub64(p.salt)) === p.h; } catch (e) { return false; }
+}
+async function alternarPin() {
+  if (!(window.crypto && crypto.subtle)) { alert('El bloqueo con PIN necesita abrir la app con https.'); return; }
+  if (localStorage.getItem(PINK)) {
+    if (await pinCorrecto(prompt('PIN actual:'))) { localStorage.removeItem(PINK); actualizarPin(); } else alert('PIN incorrecto.');
+    return;
+  }
+  const p = prompt('Nuevo PIN (4 a 8 cifras):');
+  if (!/^\d{4,8}$/.test(p || '')) { alert('El PIN debe tener entre 4 y 8 cifras.'); return; }
+  if (prompt('Repite el PIN:') !== p) { alert('Los PIN no coinciden.'); return; }
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  localStorage.setItem(PINK, JSON.stringify({salt: b64(salt), h: await hashPin(p, salt)})); actualizarPin();
+}
+function actualizarPin() { $('btnPin').textContent = localStorage.getItem(PINK) ? 'Quitar bloqueo con PIN' : 'Activar bloqueo con PIN'; }
+async function desbloquear() {
+  if (await pinCorrecto($('pinInput').value)) { document.documentElement.classList.remove('locked'); $('pinInput').value = ''; $('pinError').textContent = ''; }
+  else $('pinError').textContent = 'PIN incorrecto';
+}
+
+function borrarDatosDispositivo() {
+  if (!confirm('Se borrarán TODOS los datos de este dispositivo (plantilla, partidos y ajustes). Haz antes una copia si la necesitas. ¿Continuar?')) return;
+  if (!confirm('Última confirmación: no se puede deshacer.')) return;
+  [KEY, META, PINK].forEach(k => localStorage.removeItem(k));
+  try { indexedDB.deleteDatabase('montmelo_cb'); } catch (e) {}
+  location.reload();
+}
+
+async function arrancar(hadLocal) {
+  actualizarPin(); actualizarCopia();
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  if (!hadLocal) {
+    const d = await idbGet();
+    if (d && Array.isArray(d.jugadores)) { appState = d; saveState(); renderPlantilla(); actualizarCopia(); }
+  }
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+function showTab(id) {
+  document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
+  document.querySelectorAll('#sideNav button').forEach(e => e.classList.remove('active'));
+
+  $(id).classList.add('active');
+  if ($('btn-' + id)) $('btn-' + id).classList.add('active');
+
+  ({'tab-equipos':renderPlantilla,'tab-propuesta':renderPropuesta,'tab-resultado':renderTablaResultadoRapido,'tab-partidos-guardados':renderHistorico})[id]();
+}
+
+/* ---------- Plantilla ---------- */
+function partidosJugados(j) { return appState.partidos.filter(p => (p.periodos || {})[j.nombre] > 0).length; }
+
+function renderPlantilla() {
+  $('modoReparto').value = MODOS[appState.modo] ? appState.modo : 'eq'; $('descModo').textContent = DESC_MODO[$('modoReparto').value];
+  $('avisoVacio').style.display = appState.jugadores.length ? 'none' : 'block';
+  $('tablaJugadores').innerHTML = appState.jugadores.map((j, i) => {
+    const pj = partidosJugados(j);
+    return `<tr>
+      <td><input type="checkbox" class="chk" aria-label="Disponible" ${j.disponible ? 'checked' : ''} onchange="appState.jugadores[${i}].disponible=this.checked;saveState()"></td>
+      <td><b>#${esc(j.dorsal)}</b></td><td class="l">${esc(j.nombre)}</td>
+      <td>${pj}</td><td>${j.periodosTotales || 0}</td><td>${j.puntosTotales || 0}</td>
+      <td>${j.periodosTotales ? (j.puntosTotales / j.periodosTotales).toFixed(2) : '–'}</td>
+      <td><button class="danger" style="width:auto;padding:4px 8px;margin:0" aria-label="Eliminar ${esc(j.nombre)}" onclick="eliminarJugador(${i})">X</button></td></tr>`;
+  }).join('');
+}
+
+function agregarJugador() {
+  const nombre = $('nombreJugador').value.trim().toUpperCase();
+  const dorsal = parseInt($('dorsalJugador').value, 10);
+  if (!nombre || isNaN(dorsal)) { alert('Escribe el nombre y el dorsal.'); return; }
+  if (appState.jugadores.some(j => j.dorsal === dorsal)) { alert('Ya hay un jugador con el dorsal ' + dorsal + '.'); return; }
+  appState.jugadores.push({nombre, dorsal, periodosTotales:0, puntosTotales:0, disponible:true});
+  $('nombreJugador').value = '';$('dorsalJugador').value = '';
+  saveState(); renderPlantilla();
+}
+
+function eliminarJugador(i) {
+  if (!confirm('¿Eliminar a ' + appState.jugadores[i].nombre + ' de la plantilla?')) return;
+  appState.jugadores.splice(i, 1); saveState(); renderPlantilla();
+}
+
+/* ---------- Propuesta ---------- */
+function valorJugador() {
+  let P = 0, S = 0;
+  appState.jugadores.forEach(j => { P += j.periodosTotales || 0; S += j.puntosTotales || 0; });
+  const mu = P ? S / P : 0.5, net = {}, cnt = {};
+  appState.partidos.forEach(p => {
+    if (!p.par || !p.perArr) return;
+    const d = p.par.f.map((f, k) => f - p.par.c[k]), m = d.reduce((a, b) => a + b, 0) / 8;
+    Object.entries(p.perArr).forEach(([n, arr]) => arr.forEach(q => { net[n] = (net[n] || 0) + d[q - 1] - m; cnt[n] = (cnt[n] || 0) + 1; }));
+  });
+  return j => ((j.puntosTotales || 0) + 3 * mu) / ((j.periodosTotales || 0) + 3) + 0.15 * (net[j.nombre] || 0) / ((cnt[j.nombre] || 0) + 4);
+}
+
+/* ---------- Propuesta: reparto con 3 modos ----------
+   Normativa (siempre): cada jugador juega 2 periodos como mínimo antes del 6º y 5 como máximo en los 6 primeros.
+   Descanso (siempre): nadie juega más de 3 periodos seguidos.
+   Competitivo: solo lo anterior. Equilibrio: además cada jugador 4-6 periodos.
+   Equitativo: además todos juegan los mismos periodos (si 40 no se divide entre los jugadores, la diferencia máxima es 1). */
+const MODOS = {comp: 'Competitivo', eq: 'Equilibrio', equi: 'Equitativo'};
+const DESC_MODO = {
+  comp: 'Cumple la normativa y el descanso (máx. 3 periodos seguidos). Sin reparto obligatorio: juegan más los mejor valorados.',
+  eq: 'Además de lo anterior, cada jugador juega entre 4 y 6 periodos.',
+  equi: 'Además de lo anterior, todos juegan los mismos periodos (si no sale exacto, la diferencia máxima es de 1).'
+};
+function cambiarModo(v) { appState.modo = v; saveState(); $('descModo').textContent = DESC_MODO[v]; }
+
+function buscar(disp, pesos, v, cfg, its) {
+  let best = null, bestJ = -1e9;
+  const m6 = Math.max(0, 30 - 5 * (disp.length - 1));   // mínimo forzoso en los 6 primeros si el resto ya llega al máximo
+  for (let it = 0; it < (its || 2500); it++) {
+    const c = {}, c5 = {}, c6 = {}, rac = {}, al = [], L = []; let ok = true, J = 0;
+    disp.forEach(j => { const n = j.nombre; c[n] = c5[n] = c6[n] = rac[n] = 0; });
+    for (let p = 0; p < 8 && ok; p++) {
+      const sc = disp.map(j => {
+        const n = j.nombre; let s = v[n] * (1 + 0.35 * (Math.random() - .5)) + 0.3 * (Math.random() - .5), must = false, ban = false;
+        if (!cfg.libre) {
+          const n1 = Math.max(0, 2 - c5[n]), sl1 = p <= 4 && n1 ? (5 - p) - n1 : 99;
+          const sl2 = cfg.lo !== undefined && cfg.lo - c[n] > 0 ? (8 - p) - (cfg.lo - c[n]) : 99;
+          const n3 = Math.max(0, m6 - c6[n]), sl3 = p <= 5 && n3 ? (6 - p) - n3 : 99;
+          const urg = Math.min(sl1, sl2, sl3);
+          if (urg <= 0) must = true; else if (urg < 4) s += 6 / urg;
+          if (p <= 5 && c6[n] >= 5) ban = true;
+          if (cfg.hi !== undefined && c[n] >= cfg.hi) ban = true;
+          if (cfg.rc && rac[n] >= 3) ban = true;
+        }
+        return [must ? s + 1e3 : ban ? s - 1e3 : s, n, must, ban];
+      }).sort((a, b) => b[0] - a[0]);
+      const sel = sc.slice(0, 5);
+      if (sc.filter(x => x[2]).length > 5 || sel.some(x => x[3])) { ok = false; break; }
+      const names = sel.map(x => x[1]);
+      disp.forEach(j => { const n = j.nombre;
+        if (names.includes(n)) { c[n]++; rac[n]++; if (p <= 4) c5[n]++; if (p <= 5) c6[n]++; } else rac[n] = 0; });
+      const Lp = names.reduce((s, n) => s + v[n], 0); L.push(Lp); J += pesos[p] * Lp; al.push(names);
+    }
+    if (!ok) continue;
+    if (!cfg.libre && !disp.every(j => c5[j.nombre] >= 2 && c6[j.nombre] <= 5 && c6[j.nombre] >= m6 &&
+      (cfg.lo === undefined || c[j.nombre] >= cfg.lo) && (cfg.hi === undefined || c[j.nombre] <= cfg.hi))) continue;
+    const m = L.reduce((a, b) => a + b, 0) / 8;
+    J -= 0.3 * L.reduce((s, x) => s + (x - m) * (x - m), 0);   // evita periodos con los cinco más flojos juntos
+    if (J > bestJ) { bestJ = J; best = {al, cnt: c}; }
+  }
+  return best;
+}
+
+function optimizar(disp, pesos) {
+  const val = valorJugador(), v = {};
+  disp.forEach(j => v[j.nombre] = val(j));
+  const modo = MODOS[appState.modo] ? appState.modo : 'eq', N = disp.length, avg = 40 / N;
+  const reparto = modo === 'eq' ? {lo: Math.min(4, Math.floor(avg)), hi: Math.min(8, Math.max(6, Math.ceil(avg)))}
+    : modo === 'equi' ? {lo: Math.floor(avg), hi: Math.ceil(avg)} : {};
+  const hay = Object.keys(reparto).length;
+  const niveles = [[{...reparto, rc: 1}, '']];
+  if (modo === 'equi') niveles.push([{lo: reparto.lo - 1, hi: reparto.hi + 1, rc: 1}, 'No ha sido posible un reparto exactamente equitativo con estas condiciones: la diferencia entre jugadores es de hasta 2 periodos.']);
+  if (hay) niveles.push([{rc: 1}, `No he podido cumplir el reparto del modo ${MODOS[modo]}; he aplicado solo la normativa y el descanso.`]);
+  niveles.push([{}, 'No he podido evitar que alguien juegue 4 periodos seguidos (con tan pocos jugadores es imposible evitarlo).']);
+  for (let k = 0; k < niveles.length; k++) {
+    const r = buscar(disp, pesos, v, niveles[k][0]) || (k === 0 ? buscar(disp, pesos, v, niveles[k][0], 10000) : null);
+    if (r) {
+      r.aviso = niveles[k][1];
+      if (modo === 'equi' && !k && 40 % N) r.info = `Con ${N} jugadores no se puede repartir exactamente igual: la diferencia máxima es de 1 periodo.`;
+      return r;
+    }
+  }
+  const r = buscar(disp, pesos, v, {libre: 1});
+  r.aviso = `Con ${N} jugadores disponibles no se puede cumplir la normativa (mín. 2 periodos antes del 6º y máx. 5 en los 6 primeros).`;
+  return r;
+}
+
+function crearPropuesta(rival, pesos, nota, rivalAlin) {
+  const disp = appState.jugadores.filter(j => j.disponible);
+  if (disp.length < 5) { alert('Hace falta un mínimo de 5 jugadores disponibles.'); return; }
+  const r = optimizar(disp, pesos);
+  appState.propuestaActual = {rival, alineacion: r.al, conteo: r.cnt, pesos, nota, aviso: r.aviso, info: r.info || '', rivalAlin: rivalAlin || null, modo: appState.modo || 'eq', actual: 0};
+  saveState(); $('inputRivalGuardar').value = rival;
+  navigateTo('tab-propuesta', 'Propuesta de Alineación');
+}
+
+function generarAlineacionNuevoPartido(regenerar) {
+  const pr = appState.propuestaActual;
+  if (regenerar && pr) return crearPropuesta(pr.rival, pr.pesos || Array(8).fill(1), pr.nota || '', pr.rivalAlin);
+  crearPropuesta($('rivalInputP1').value.trim() || 'Rival genérico', Array(8).fill(1), '', null);
+}
+
+/* Partido de vuelta: el acta dice quién jugó cada periodo en los dos equipos. Se supone que el rival repetirá sus rotaciones;
+   pesan más los periodos con sus mejores anotadores en pista y aquellos en los que perdiste por más. */
+function generarVuelta(i) {
+  const p = appState.partidos[i], rj = p.rivalJug || [];
+  let f1 = Array(8).fill(1), f2 = Array(8).fill(1), nota = `Ida: ${p.resultado}. `, rivalAlin = null;
+  if (p.par) {
+    const d = p.par.c.map((c, k) => c - p.par.f[k]), m = p.par.c.reduce((a, b) => a + b, 0) / 8 + 1;
+    f1 = d.map(x => Math.min(1.8, Math.max(0.4, 1 + 0.6 * x / m)));
+  }
+  if (rj.length) {
+    rivalAlin = Array.from({length: 8}, (_, k) => rj.filter(j => j.periodos.includes(k + 1)).map(j => j.dorsal));
+    const dn = rivalAlin.map(ds => rj.filter(j => ds.includes(j.dorsal)).reduce((s, j) => s + j.pts / Math.max(1, j.periodos.length), 0));
+    const mu = dn.reduce((a, b) => a + b, 0) / 8 || 1;
+    f2 = dn.map(x => Math.min(1.8, Math.max(0.5, x / mu)));
+    const top = dn.map((x, k) => [x, k + 1]).sort((a, b) => b[0] - a[0]).slice(0, 3).map(a => a[1] + 'º');
+    nota += `Periodos de más peligro según quién jugó en la ida: ${top.join(', ')}. `;
+    const an = rj.filter(j => j.pts > 0).sort((a, b) => b.pts - a.pts).slice(0, 3).map(j => `#${j.dorsal} (${j.pts})`);
+    if (an.length) nota += 'Anotadores del rival: ' + an.join(', ') + '.';
+  }
+  crearPropuesta(p.rivalNombre || p.rival, f1.map((x, k) => 0.5 * x + 0.5 * f2[k]), nota, rivalAlin);
+}
+
+function movPeriodo(d) { const pr = appState.propuestaActual; if (!pr) return; pr.actual = Math.max(0, Math.min(7, (pr.actual || 0) + d)); saveState(); renderPropuesta(); }
+function irPeriodo(i) { appState.propuestaActual.actual = i; saveState(); renderPropuesta(); }
+
+function renderPropuesta() {
+  const pr = appState.propuestaActual;
+  $('btnRegenerar').style.display = pr ? 'block' : 'none';
+  $('modoPartido').style.display = pr ? 'block' : 'none';
+  if (!pr) {
+    $('tituloRivalPropuesta').textContent = 'Rival: sin definir'; $('notaPropuesta').textContent = '';$('contenedorPeriodos').innerHTML = '<p class="muted">Genera una propuesta desde la pestaña Plantilla o desde un partido del Histórico.</p>';
+    $('resumenPropuesta').textContent = ''; return;
+  }
+  const dors = n => (appState.jugadores.find(j => j.nombre === n) || {}).dorsal;
+  const tag = (n, big) => `<span class="tag"${big ? ' style="font-size:1.1em;padding:8px 12px"' : ''}>#${esc(dors(n) ?? '?')} ${esc(n.split(' ')[0])}</span>`;
+  const a = pr.actual || 0, sel = pr.alineacion[a], todos = appState.jugadores.filter(j => j.disponible).map(j => j.nombre);
+  $('tituloRivalPropuesta').textContent = 'Rival: ' + pr.rival;
+  $('tituloRivalPropuesta').textContent = 'Rival: ' + pr.rival + ' · Modo ' + (MODOS[pr.modo] || 'Equilibrio');
+  $('notaPropuesta').textContent = [pr.nota, pr.info ? 'ℹ️ ' + pr.info : '', pr.aviso ? '⚠️ ' + pr.aviso : ''].filter(Boolean).join(' ');
+  $('periodoActual').innerHTML = `<h3 style="margin:0 0 8px">Periodo ${a + 1} de 8</h3><div>${sel.map(n => tag(n, 1)).join('')}</div>` +
+    (a < 7 ? `<p class="muted" style="margin-top:8px">Siguiente: ${pr.alineacion[a + 1].map(n => tag(n)).join('')}</p>` : '') +
+    (pr.rivalAlin ? `<p class="muted">Rival en la ida: ${pr.rivalAlin[a].map(d => '#' + d).join(' ')}</p>` : '') +
+    `<p class="muted">Descansan: ${esc(todos.filter(n => !sel.includes(n)).map(n => n.split(' ')[0]).join(', ') || '–')}</p>`;
+  $('contenedorPeriodos').innerHTML = pr.alineacion.map((p, i) =>
+    `<div class="box" style="cursor:pointer;${i === a ? 'border:2px solid var(--primary); background:var(--card)' : ''}" onclick="irPeriodo(${i})"><h4>Periodo ${i + 1}</h4>${p.map(n => tag(n)).join('')}${pr.rivalAlin ? `<div class="muted">Rival: ${pr.rivalAlin[i].map(d => '#' + d).join(' ')}</div>` : ''}</div>`).join('');
+  $('resumenPropuesta').textContent = 'Periodos por jugador: ' + Object.entries(pr.conteo).map(([n, c]) => n.split(' ')[0] + ' ' + c).join(' · ');
+}
+
+/* ---------- Registro del partido ---------- */
+function renderTablaResultadoRapido() {
+  $('tablaRegistroRapido').innerHTML = appState.jugadores.map((j, i) => {
+    let c = '';
+    for (let p = 1; p <= 8; p++) {
+      const pre = appState.propuestaActual?.alineacion[p - 1]?.includes(j.nombre) ? 'checked' : '';
+      c += `<td><input type="checkbox" class="chk" data-j="${i}" data-p="${p}" aria-label="${esc(j.nombre)} periodo ${p}" ${pre}></td>`;
+    }
+    return `<tr><td class="l"><b>#${esc(j.dorsal)}</b> <small>${esc(j.nombre.split(' ')[0])}</small></td>${c}
+      <td><input type="number" min="0" class="pts" data-j="${i}" value="0" aria-label="Puntos de ${esc(j.nombre)}"></td></tr>`;
+  }).join('');
+}
+
+function setPlayer(i, periodos, pts) {
+  document.querySelectorAll(`.chk[data-j="${i}"]`).forEach(cb => cb.checked = periodos.includes(+cb.dataset.p));
+  document.querySelector(`.pts[data-j="${i}"]`).value = pts;
+}
+
+let actaExtra = null;
+function renderRivalActa() {
+  const x = actaExtra, el = $('rivalActa');
+  if (!x) { el.innerHTML = ''; return; }
+  const sum = a => a.reduce((s, v) => s + (v || 0), 0);
+  const par = x.par ? `<div class="wrap"><table><thead><tr><th></th>${[1,2,3,4,5,6,7,8].map(n => `<th>${n}</th>`).join('')}<th>Total</th></tr></thead><tbody>
+    <tr><td class="l">Montmeló</td>${x.par.f.map(v => `<td>${v}</td>`).join('')}<td><b>${sum(x.par.f)}</b></td></tr>
+    <tr><td class="l">Rival</td>${x.par.c.map(v => `<td>${v}</td>`).join('')}<td><b>${sum(x.par.c)}</b></td></tr></tbody></table></div>` : '';
+  const jug = `<div class="wrap"><table><thead><tr><th>#</th><th>Jugador rival</th><th>Periodos</th><th>Pts</th></tr></thead><tbody>${x.rivalJug.map(j =>
+    `<tr><td>${esc(j.dorsal)}</td><td class="l">${esc(j.nombre)}</td><td>${j.periodos.length}</td><td>${j.pts}</td></tr>`).join('')}</tbody></table></div>`;
+  el.innerHTML = `<div class="card"><h3>Datos del rival (extraídos del acta)</h3>${par}${jug}</div>`;
+}
+
+function aviso(txt, tipo) { $('actaEstado').innerHTML = `<div class="msg ${tipo || ''}">${esc(txt)}</div>`; }
+
+function parseActa(T) {
+  const num = s => /^\d{1,3}$/.test(s);
+  const nrm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+  const eq = T.filter(w => w.s === 'Equip').sort((a, b) => a.t - b.t);
+  const ent = T.filter(w => w.s === 'ENTRADES').sort((a, b) => a.t - b.t);
+  if (eq.length < 4 || ent.length < 2) return null;
+
+  const top = T.filter(w => Math.abs(w.t - eq[0].t) <= 5 && w.x < 780).sort((a, b) => a.x - b.x);
+  const iA = top.findIndex(w => w.s === 'A:'), iB = top.findIndex(w => w.s === 'B:');
+  const iE = top.findIndex((w, i) => i > iA && w.s === 'Equip');
+  const nomA = top.slice(iA + 1, iE < 0 ? iB : iE).map(w => w.s).join(' ');
+  const nomB = top.slice(iB + 1).map(w => w.s).join(' ');
+  const out = {nomA, nomB, warn: []};
+
+  let cols = [];
+  for (let d = 1; d <= 8; d++) {
+    const h = T.find(w => w.s === String(d) && w.x > 255 && w.x < 332 && w.t > ent[0].t && w.t < ent[0].t + 25);
+    cols.push(h ? h.x : null);
+  }
+  if (cols.some(c => c === null)) cols = [262, 269, 278, 286, 295, 303, 312, 320];
+  const c1 = cols[0];
+
+  const tabla = (t0, t1) => T.filter(w => w.t > t0 && w.t < t1 && w.x >= 225 && w.x < c1 - 3 && num(w.s)).sort((a, b) => a.t - b.t)
+    .map(d => {
+      const marks = T.filter(w => /^[Xx]$/.test(w.s) && Math.abs(w.t - d.t) <= 5 && w.x > c1 - 4 && w.x < cols[7] + 6);
+      const per = [...new Set(marks.map(m => cols.reduce((b, c, i) => Math.abs(c - m.x) < Math.abs(cols[b] - m.x) ? i : b, 0) + 1))].sort((a, b) => a - b);
+      const nombre = T.filter(w => Math.abs(w.t - d.t) <= 3 && w.x > 90 && w.x < 215).sort((a, b) => a.x - b.x).map(w => w.s).join(' ');
+      return {dorsal: +d.s, periodos: per, t: d.t, nombre};
+    });
+  const tA = tabla(ent[0].t + 6, eq[3].t - 2), tB = tabla(ent[1].t + 6, 548);
+  out.local = nrm(nomA).includes('MONTMEL') ? true : nrm(nomB).includes('MONTMEL') ? false : null;
+  out.rival = (out.local === false ? nomA : nomB).trim();
+  out.mios = out.local === false ? tB : tA;
+  out.otros = out.local === false ? tA : tB;
+
+  const hdr = T.filter(w => w.s === 'A' && w.x > 400 && w.x < 780 && w.t > 95 && w.t < 125).sort((a, b) => a.x - b.x);
+  const anchor = hdr.length ? hdr[0].x : 414;
+  const pitch = hdr.length > 1 ? (hdr[hdr.length - 1].x - hdr[0].x) / (hdr.length - 1) : 71, sc = pitch / 71;
+  const cell = {};
+  T.filter(w => w.x >= 400 && w.x < 770 && w.t > 118 && w.t < 548 && (num(w.s) || w.s === '-')).forEach(w => {
+    const cx = ((w.x + (w.x1 || w.x + 5 * w.s.length)) / 2);
+    const k = Math.floor((cx - anchor + 12 * sc) / pitch), r = (cx - anchor - pitch * k) / sc;
+    const c = r < 3 ? 'Ad' : r < 16 ? 'Ac' : r < 30 ? 'M' : r < 45 ? 'Bd' : 'Bc';
+    (cell[k + c] = cell[k + c] || []).push(w);
+  });
+  const nb = Math.max(1, hdr.length || 5);
+  const calc = pref => {
+    const pts = {}; let sinDorsal = 0, prev = 0, cur = null;
+    for (let k = 0; k < nb; k++) {
+      (cell[k + pref + 'c'] || []).sort((a, b) => a.t - b.t).forEach(c => {
+        const d = (cell[k + pref + 'd'] || []).find(x => Math.abs(x.t - c.t) <= 4);
+        if (d && d.s === '-') { prev = 0; cur = null; return; }
+        if (c.s === '-') { if (d) cur = +d.s; return; }
+        const v = +c.s;
+        if (v < prev) prev = 0;
+        if (d) cur = +d.s;
+        const dp = v - prev; prev = v;
+        if (cur === null) sinDorsal += dp; else pts[cur] = (pts[cur] || 0) + dp;
+      });
+    }
+    return {pts, sinDorsal};
+  };
+  const mine = calc(out.local === false ? 'B' : 'A'), rv = calc(out.local === false ? 'A' : 'B');
+  out.pts = mine.pts; out.sinDorsal = mine.sinDorsal;
+  out.rivalJug = out.otros.map(m => ({dorsal: m.dorsal, nombre: m.nombre, periodos: m.periodos, pts: rv.pts[m.dorsal] || 0})).filter(j => j.periodos.length || j.pts);
+
+  const h1 = T.find(w => w.s === '1r' && w.x > 400 && w.t > 530);
+  if (h1) {
+    const xs = [422, 439, 457, 475, 493, 511, 529, 546];
+    const fila = (a, b) => { const v = Array(8).fill(0);
+      T.filter(w => num(w.s) && w.t > h1.t + a && w.t < h1.t + b && w.x > 410 && w.x < 560).forEach(w => {
+        v[xs.reduce((bi, x, k) => Math.abs(x - w.x) < Math.abs(xs[bi] - w.x) ? k : bi, 0)] = +w.s; }); return v; };
+    out.parA = fila(8, 26); out.parB = fila(27, 45);
+  }
+
+  const A = T.find(w => w.s === 'A' && w.x > 600 && w.t > 530 && w.t < 600), B = T.find(w => w.s === 'B' && w.x > 650 && w.t > 530 && w.t < 600);
+  if (A && B) {
+    const dg = (x0, x1) => T.filter(w => num(w.s) && w.x > x0 && w.x < x1 && Math.abs(w.t - A.t) <= 8).sort((a, b) => a.x - b.x).map(w => w.s).join('');
+    const a = dg(A.x, B.x), b = dg(B.x, B.x + 60);
+    if (a !== '' && b !== '') { out.resA = +a; out.resB = +b; }
+  }
+  const f = T.find(w => /^\d{2}\/\d{2}\/\d{2,4}$/.test(w.s)); out.fecha = f ? f.s : '';
+  return out;
+}
+
+async function leerActa(file) {
+  if (!file) return;
+  if (typeof pdfjsLib === 'undefined') { aviso('No se ha podido cargar el lector de PDF. Comprueba la conexión.', 'err'); return; }
+  aviso('Procesando archivo...');
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf = await pdfjsLib.getDocument({data: await file.arrayBuffer()}).promise;
+    const page = await pdf.getPage(1), H = page.view[3];
+    const items = (await page.getTextContent()).items;
+    const T = [];
+    items.forEach(it => {
+      const s = it.str, re = /\S+/g; let m;
+      while ((m = re.exec(s))) T.push({s: m[0], x: it.transform[4] + it.width * m.index / s.length,
+        x1: it.transform[4] + it.width * (m.index + m[0].length) / s.length, t: H - it.transform[5]});
+    });
+    if (!T.length) { aviso('El PDF no contiene texto vectorial reconocible (parece un escaneo).', 'err'); return; }
+    const r = parseActa(T);
+    $('actaTexto').textContent = JSON.stringify(r, null, 1) + '\n\n' + T.map(w => w.s).join(' ').slice(0, 3000);
+    if (!r || !r.mios.length) { aviso('No se ha reconocido la estructura del acta. Puedes rellenar los datos manualmente.', 'err'); return; }
+
+    renderTablaResultadoRapido();
+    document.querySelectorAll('.chk').forEach(cb => cb.checked = false);
+    const fuera = [], porPeriodo = Array(8).fill(0);
+    r.mios.forEach(m => {
+      m.periodos.forEach(p => porPeriodo[p - 1]++);
+      const i = appState.jugadores.findIndex(j => j.dorsal === m.dorsal);
+      if (i < 0) fuera.push('#' + m.dorsal); else setPlayer(i, m.periodos, r.pts[m.dorsal] || 0);
+    });
+    $('selectCondicion').value = r.local === false ? 'Visitante (Equip B)' : 'Local (Equip A)';
+    $('inputRivalGuardar').value = r.rival;
+    if (r.resA !== undefined) { $('puntosFavor').value = r.local === false ? r.resB : r.resA; $('puntosRival').value = r.local === false ? r.resA : r.resB; }
+    const f = r.fecha.split('/');
+    if (f.length === 3) $('fechaPartido').value = `${f[0]}/${f[1]}/${f[2].length === 2 ? '20' + f[2] : f[2]}`;
+
+    const loc = r.local !== false, pa = loc ? r.parA : r.parB, pc = loc ? r.parB : r.parA;
+    actaExtra = {rivalJug: r.rivalJug || [], par: pa && pc ? {f: pa, c: pc} : null};
+    renderRivalActa();
+    const av = [];
+    if (r.sinDorsal) av.push(`Puntos sin dorsal asignado: ${r.sinDorsal}.`);
+    if (fuera.length) av.push(`Dorsales del acta que no están en la plantilla: ${fuera.join(', ')}.`);
+    const raros = porPeriodo.map((n, i) => n !== 5 ? `${i + 1}º (${n})` : '').filter(Boolean);
+    if (raros.length) av.push(`Periodos sin 5 jugadores detectados: ${raros.join(', ')}.`);
+    if (r.resA === undefined) av.push('Resultado final no detectado.');
+    aviso('Acta leída correctamente. ' + av.join(' ') + ' Revisa los campos antes de guardar.', av.length ? '' : 'good');
+  } catch (e) {
+    console.error(e);
+    aviso('No se ha podido leer el archivo. Rellena los datos manualmente.', 'err');
+  }
+}
+
+function guardarPartidoEnHistorico() {
+  const rival = $('inputRivalGuardar').value.trim() || 'Rival genérico';
+  const pf = parseInt($('puntosFavor').value, 10), pr = parseInt($('puntosRival').value, 10);
+  if (isNaN(pf) || isNaN(pr)) { alert('Indica los puntos de Montmeló CB y del rival.'); return; }
+  const periodos = {}, puntos = {}, perArr = {};
+  appState.jugadores.forEach((j, i) => {
+    perArr[j.nombre] = [...document.querySelectorAll(`.chk[data-j="${i}"]:checked`)].map(c => +c.dataset.p);
+    periodos[j.nombre] = perArr[j.nombre].length;
+    puntos[j.nombre] = parseInt(document.querySelector(`.pts[data-j="${i}"]`).value, 10) || 0;
+  });
+  const suma = Object.values(puntos).reduce((a, b) => a + b, 0);
+  if (suma !== pf && !confirm(`Los puntos de los jugadores suman ${suma} y el resultado global es ${pf}. ¿Guardar igualmente?`)) return;
+  appState.partidos.push({
+    id: Date.now(), rival: `${rival} (${$('selectCondicion').value})`, fecha: $('fechaPartido').value.trim() || new Date().toLocaleDateString('es-ES'),
+    pf, pr, resultado: `${pf} - ${pr}`, notas: $('notasRival').value, periodos, puntos, perArr,
+    rivalNombre: rival, par: actaExtra ? actaExtra.par : null, rivalJug: actaExtra ? actaExtra.rivalJug : []
+  });
+  appState.jugadores.forEach(j => { j.periodosTotales = (j.periodosTotales || 0) + periodos[j.nombre]; j.puntosTotales = (j.puntosTotales || 0) + puntos[j.nombre]; });
+  appState.propuestaActual = null; actaExtra = null; renderRivalActa();
+  ['puntosFavor','puntosRival','notasRival','actaFile','fechaPartido'].forEach(id => $(id).value = '');
+  $('actaTexto').textContent = '';$('actaEstado').textContent = '';
+  saveState();
+  if (meta().auto !== false) copiaSeguridad();
+  navigateTo('tab-partidos-guardados', 'Histórico de Partidos');
+}
+
+/* ---------- Histórico ---------- */
+function renderHistorico() {
+  actualizarCopia();
+  if (!appState.partidos.length) { $('listaHistorico').innerHTML = '<p class="muted">Aún no hay partidos guardados.</p>'; return; }
+  $('listaHistorico').innerHTML = appState.partidos.map((p, i) => [p, i]).reverse().map(([p, i]) => {
+    const [a, b] = p.pf !== undefined ? [p.pf, p.pr] : p.resultado.split('-').map(Number);
+    const [txt, col] = a > b ? ['Victoria', 'var(--ok)'] : a < b ? ['Derrota', 'var(--bad)'] : ['Empate', 'var(--text-muted)'];
+    const filas = appState.jugadores.filter(j => (p.periodos || {})[j.nombre] !== undefined)
+      .map(j => `<tr><td class="l">#${esc(j.dorsal)} ${esc(j.nombre)}</td><td>${p.periodos[j.nombre]}</td><td>${(p.puntos || {})[j.nombre] || 0}</td></tr>`).join('');
+    const par = p.par ? `<p class="muted">Parciales: ${p.par.f.map((f, k) => f + '-' + p.par.c[k]).join(' · ')}</p>` : '';
+    const rj = (p.rivalJug || []).filter(j => j.pts > 0).sort((x, y) => y.pts - x.pts);
+    const riv = rj.length ? `<details><summary>Jugadores del rival</summary><div class="wrap"><table><thead><tr><th>#</th><th>Jugador</th><th>Periodos</th><th>Pts</th></tr></thead><tbody>${(p.rivalJug || []).map(j => `<tr><td>${esc(j.dorsal)}</td><td class="l">${esc(j.nombre)}</td><td>${j.periodos.length}</td><td>${j.pts}</td></tr>`).join('')}</tbody></table></div></details>` : '';
+    return `<div class="card" style="border-left:4px solid ${col}">
+      <h4>vs ${esc(p.rival)} <span class="muted" style="font-weight:400; font-size:0.8em">(${esc(p.fecha)})</span></h4>
+      <p style="margin:8px 0"><span class="badge" style="background:${col}">${txt}</span> Montmeló CB <b>${a} - ${b}</b></p>${par}
+      ${p.notas ? `<p class="muted" style="color:var(--text)">${esc(p.notas)}</p>` : ''}
+      <details><summary>Ver detalle individual</summary><div class="wrap"><table><thead><tr><th>Jugador</th><th>Periodos</th><th>Puntos</th></tr></thead><tbody>${filas}</tbody></table></div></details>${riv}
+      <div style="margin-top:12px; display:flex; gap:8px">
+        <button class="blue" style="margin:0" onclick="generarVuelta(${i})">Alineación de vuelta</button>
+        <button class="danger" style="width:100px; margin:0" onclick="borrarPartido(${i})">Borrar</button>
+      </div></div>`;
+  }).join('');
+}
+
+function borrarPartido(i) {
+  if (!confirm('¿Borrar este partido? Se restarán sus estadísticas.')) return;
+  const p = appState.partidos[i];
+  appState.jugadores.forEach(j => {
+    j.periodosTotales = Math.max(0, (j.periodosTotales || 0) - ((p.periodos || {})[j.nombre] || 0));
+    j.puntosTotales = Math.max(0, (j.puntosTotales || 0) - ((p.puntos || {})[j.nombre] || 0));
+  });
+  appState.partidos.splice(i, 1); saveState(); renderHistorico();
+}
+
+function borrarTodoElHistorico() {
+  if (!confirm('¿Borrar todo el histórico y poner las estadísticas a 0?')) return;
+  appState.partidos = [];
+  appState.jugadores.forEach(j => { j.periodosTotales = 0; j.puntosTotales = 0; });
+  saveState(); renderHistorico();
+}
+
+renderPlantilla(); arrancar(hadLocal);
+</script>
+</body>
+</html>
