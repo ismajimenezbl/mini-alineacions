@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gestor Mini Básquet - Montmeló CB</title>
+<title>Gestor de alineaciones minibásquet</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#d84315">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Mini Montmeló">
-<script>try{if(localStorage.getItem("montmelo_cb_pin"))document.documentElement.classList.add("locked")}catch(e){}</script>
+<meta name="apple-mobile-web-app-title" content="Alineaciones Mini">
+<script>try{if((localStorage.getItem("mini_alineaciones_pin")||localStorage.getItem("montmelo_cb_pin")))document.documentElement.classList.add("locked")}catch(e){}</script>
 <style>
 :root {
   --primary: #d84315;
@@ -50,7 +50,7 @@ header {
   box-shadow: 0 2px 8px rgba(0,0,0,0.03);
 }
 
-.header-title {
+.header-title { min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -63,6 +63,7 @@ header {
   letter-spacing: -0.3px;
 }
 
+.header-title h1, .header-title span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .header-title span {
   font-size: 0.75rem;
   color: var(--text-muted);
@@ -282,7 +283,7 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
 
 <header>
   <div class="header-title">
-    <h1>Montmeló CB</h1>
+    <h1>Gestor de alineaciones minibásquet</h1>
     <span id="active-tab-label">Plantilla</span>
   </div>
   <button class="menu-btn" id="menuBtn" onclick="toggleMenu()" aria-label="Abrir menú">
@@ -293,7 +294,7 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
 </header>
 
 <div id="lock">
-  <h2>Montmeló CB</h2>
+  <h2>Gestor de alineaciones minibásquet</h2>
   <p class="muted">Introduce tu PIN para continuar</p>
   <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')desbloquear()">
   <button class="main" style="max-width:220px" onclick="desbloquear()">Entrar</button>
@@ -316,6 +317,18 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
 
 <!-- PLANTILLA -->
 <div id="tab-equipos" class="tab active">
+  <div class="card">
+    <h2>Equipos</h2>
+    <label for="selEquipo"><b>Equipo activo</b></label>
+    <select id="selEquipo" onchange="cambiarEquipo(this.value)"></select>
+    <div class="row">
+      <button class="blue" onclick="nuevoEquipoDlg()">Nuevo equipo</button>
+      <button class="blue" onclick="renombrarEquipoDlg()">Renombrar</button>
+      <button class="danger" onclick="eliminarEquipo()">Eliminar</button>
+    </div>
+    <p class="muted">Cada equipo tiene su propia plantilla, partidos y estadísticas. Ponle el club y la categoría, por ejemplo «Mini Mi Club CB». Para que la lectura de actas reconozca a tu equipo, el nombre debe parecerse al del acta.</p>
+  </div>
+
   <div class="card">
     <h2>Plantilla</h2>
     <p class="muted">Desmarca la casilla «Disp.» para indicar los jugadores no disponibles para el próximo partido.</p>
@@ -397,7 +410,7 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
     </div>
     <label for="fechaPartido"><b>Fecha del partido</b></label><input id="fechaPartido" placeholder="dd/mm/aaaa">
     <div class="row">
-      <div><label for="puntosFavor"><b>Puntos Montmeló CB</b></label><input type="number" id="puntosFavor"></div>
+      <div><label for="puntosFavor"><b>Puntos de tu equipo</b></label><input type="number" id="puntosFavor"></div>
       <div><label for="puntosRival"><b>Puntos Rival</b></label><input type="number" id="puntosRival"></div>
     </div>
     <textarea id="notasRival" placeholder="Observaciones tácticas o notas sobre el partido"></textarea>
@@ -449,9 +462,12 @@ function toggleMenu() {
   backdrop.classList.toggle('open');
 }
 
+let tituloActual = 'Plantilla';
+function etiqueta() { document.getElementById('active-tab-label').textContent = tituloActual + ' · ' + appState.nombre; }
+
 function navigateTo(tabId, title) {
   showTab(tabId);
-  document.getElementById('active-tab-label').textContent = title;
+  tituloActual = title; etiqueta();
   toggleMenu();
 }
 
@@ -459,24 +475,45 @@ function navigateTo(tabId, title) {
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
-const KEY = 'montmelo_cb_db';
+const KEY = 'mini_alineaciones_db';
+const nuevoId = () => 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const nuevoEquipo = nombre => ({id: nuevoId(), nombre, jugadores: [], partidos: [], propuestaActual: null, modo: 'eq'});
 
-const defaults = () => ({ jugadores: [], partidos: [], propuestaActual: null });
+/* Las claves antiguas se migran a las nuevas sin perder datos */
+[['montmelo_cb_db', KEY], ['montmelo_cb_meta', 'mini_alineaciones_meta'], ['montmelo_cb_pin', 'mini_alineaciones_pin']].forEach(([o, n]) => {
+  try { const v = localStorage.getItem(o); if (v !== null) { if (localStorage.getItem(n) === null) localStorage.setItem(n, v); if (localStorage.getItem(n) === v) localStorage.removeItem(o); } } catch (e) {}
+});
 
-let appState, hadLocal = false;
-try { const raw = localStorage.getItem(KEY); hadLocal = !!raw; appState = JSON.parse(raw) || defaults(); } catch (e) { appState = defaults(); }
-appState.jugadores.forEach(j => { if (j.disponible === undefined) j.disponible = true; });
+/* db = {v: 3, activo, equipos: [{id, nombre, jugadores, partidos, propuestaActual, modo}]}. `appState` es siempre el equipo activo. */
+function aDb(d) {
+  if (d && Array.isArray(d.equipos) && d.equipos.length) return d;
+  const e = nuevoEquipo('Mi equipo');
+  if (d && Array.isArray(d.jugadores)) Object.assign(e, {jugadores: d.jugadores, partidos: d.partidos || [], propuestaActual: d.propuestaActual || null, modo: d.modo || 'eq'});
+  return {v: 3, activo: e.id, equipos: [e]};
+}
+function activar(d) {
+  db = aDb(d);
+  db.equipos.forEach(e => { e.modo = e.modo || 'eq'; e.partidos = e.partidos || []; e.jugadores = e.jugadores || []; e.jugadores.forEach(j => { if (j.disponible === undefined) j.disponible = true; }); });
+  appState = db.equipos.find(e => e.id === db.activo) || db.equipos[0]; db.activo = appState.id;
+}
+
+let db, appState, hadLocal = false;
+try { const raw = localStorage.getItem(KEY); hadLocal = !!raw; activar(JSON.parse(raw)); } catch (e) { activar(null); }
 
 /* ---------- Datos locales, copias de seguridad y privacidad ----------
    Todo se guarda en este dispositivo (localStorage + copia interna en IndexedDB). No se envía nada a ningún servidor. */
-const META = 'montmelo_cb_meta', PINK = 'montmelo_cb_pin';
+const META = 'mini_alineaciones_meta', PINK = 'mini_alineaciones_pin';
 const meta = () => { try { return JSON.parse(localStorage.getItem(META)) || {}; } catch (e) { return {}; } };
 const setMeta = o => { try { localStorage.setItem(META, JSON.stringify({...meta(), ...o})); } catch (e) {} };
 
-const idb = () => new Promise((ok, ko) => { const r = indexedDB.open('montmelo_cb', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
+const idb = nom => new Promise((ok, ko) => { const r = indexedDB.open(nom || 'mini_alineaciones', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
 async function idbSet(v) { try { (await idb()).transaction('kv', 'readwrite').objectStore('kv').put(v, 'estado'); } catch (e) {} }
-async function idbGet() { try { const d = await idb(); return await new Promise(ok => { const q = d.transaction('kv').objectStore('kv').get('estado'); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); }); } catch (e) { return null; } }
-
+async function idbGet() {
+  for (const nom of ['mini_alineaciones', 'montmelo_cb']) {
+    try { const d = await idb(nom); const v = await new Promise(ok => { const q = d.transaction('kv').objectStore('kv').get('estado'); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); }); if (v) return v; } catch (e) {}
+  }
+  return null;
+}
 const b64 = u => { let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode.apply(null, u.subarray(i, i + 8192)); return btoa(s); };
 const ub64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 async function claveDe(pass, salt) {
@@ -493,10 +530,10 @@ async function descifrar(env, pass) {
 }
 
 function saveState() {
-  try { localStorage.setItem(KEY, JSON.stringify(appState)); }
+  try { localStorage.setItem(KEY, JSON.stringify(db)); }
   catch (e) { alert('No se han podido guardar los datos en este navegador.'); }
   setMeta({modificado: Date.now()});
-  idbSet(appState);
+  idbSet(db);
 }
 
 function descargar(f) {
@@ -504,16 +541,16 @@ function descargar(f) {
 }
 
 async function copiaSeguridad() {
-  let txt = JSON.stringify({v: 2, fecha: new Date().toISOString(), datos: appState}), cif = false;
+  let txt = JSON.stringify({v: 3, fecha: new Date().toISOString(), datos: db}), cif = false;
   if (meta().cifrar) {
     const pass = prompt('Contraseña para cifrar la copia (no se guarda en ningún sitio; si la pierdes, no se podrá recuperar):');
     if (!pass) return;
     if (!(window.crypto && crypto.subtle)) { alert('Este navegador no permite cifrar. Desactiva el cifrado o abre la app con https.'); return; }
     txt = JSON.stringify(await cifrar(txt, pass)); cif = true;
   }
-  const f = new File([txt], `montmelo-cb-${new Date().toISOString().slice(0, 10)}${cif ? '-cifrada' : ''}.json`, {type: 'application/json'});
+  const f = new File([txt], `alineaciones-mini-${new Date().toISOString().slice(0, 10)}${cif ? '-cifrada' : ''}.json`, {type: 'application/json'});
   try {
-    if (navigator.canShare && navigator.canShare({files: [f]})) await navigator.share({files: [f], title: 'Copia de seguridad Montmeló CB'});
+    if (navigator.canShare && navigator.canShare({files: [f]})) await navigator.share({files: [f], title: 'Copia de seguridad - Gestor de alineaciones'});
     else descargar(f);
   } catch (e) { if (e.name === 'AbortError') return; descargar(f); }
   setMeta({ultimaCopia: Date.now()}); actualizarCopia();
@@ -528,9 +565,9 @@ async function importar(file) {
       d = JSON.parse(await descifrar(d, pass));
     }
     d = d.datos || d;
-    if (!Array.isArray(d.jugadores) || !Array.isArray(d.partidos)) throw 0;
-    if (!confirm('Esto reemplazará los datos actuales de este dispositivo. ¿Continuar?')) return;
-    appState = d; appState.jugadores.forEach(j => { if (j.disponible === undefined) j.disponible = true; });
+    if (!Array.isArray(d.equipos) && !(Array.isArray(d.jugadores) && Array.isArray(d.partidos))) throw 0;
+    if (!confirm('Esto reemplazará todos los datos actuales de este dispositivo. ¿Continuar?')) return;
+    activar(d); actaExtra = null; renderRivalActa();
     saveState(); setMeta({ultimaCopia: Date.now()}); renderHistorico(); renderPlantilla();
   } catch (e) { alert('No se ha podido leer la copia: el archivo no es válido o la contraseña es incorrecta.'); }
   $('importFile').value = '';
@@ -538,7 +575,7 @@ async function importar(file) {
 
 function actualizarCopia() {
   const m = meta(), dias = m.ultimaCopia ? Math.floor((Date.now() - m.ultimaCopia) / 864e5) : null;
-  const hayDatos = appState.partidos.length > 0;
+  const hayDatos = db.equipos.some(e => e.partidos.length > 0);
   const txt = m.ultimaCopia ? `Última copia: ${new Date(m.ultimaCopia).toLocaleDateString('es-ES')} (hace ${dias} ${dias === 1 ? 'día' : 'días'}).` : 'Todavía no has hecho ninguna copia.';
   if ($('estadoCopia')) $('estadoCopia').textContent = txt;
   if ($('autoCopia')) { $('autoCopia').checked = m.auto !== false; $('cifrarCopia').checked = !!m.cifrar; }
@@ -575,8 +612,8 @@ async function desbloquear() {
 function borrarDatosDispositivo() {
   if (!confirm('Se borrarán TODOS los datos de este dispositivo (plantilla, partidos y ajustes). Haz antes una copia si la necesitas. ¿Continuar?')) return;
   if (!confirm('Última confirmación: no se puede deshacer.')) return;
-  [KEY, META, PINK].forEach(k => localStorage.removeItem(k));
-  try { indexedDB.deleteDatabase('montmelo_cb'); } catch (e) {}
+  [KEY, META, PINK, 'montmelo_cb_db', 'montmelo_cb_meta', 'montmelo_cb_pin'].forEach(k => localStorage.removeItem(k));
+  try { indexedDB.deleteDatabase('mini_alineaciones'); indexedDB.deleteDatabase('montmelo_cb'); } catch (e) {}
   location.reload();
 }
 
@@ -585,7 +622,7 @@ async function arrancar(hadLocal) {
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
   if (!hadLocal) {
     const d = await idbGet();
-    if (d && Array.isArray(d.jugadores)) { appState = d; saveState(); renderPlantilla(); actualizarCopia(); }
+    if (d && (Array.isArray(d.equipos) || Array.isArray(d.jugadores))) { activar(d); saveState(); renderPlantilla(); actualizarCopia(); }
   }
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 }
@@ -598,6 +635,48 @@ function showTab(id) {
   if ($('btn-' + id)) $('btn-' + id).classList.add('active');
 
   ({'tab-equipos':renderPlantilla,'tab-propuesta':renderPropuesta,'tab-resultado':renderTablaResultadoRapido,'tab-partidos-guardados':renderHistorico})[id]();
+}
+
+/* ---------- Equipos ---------- */
+function refrescarEquipos() {
+  const s = $('selEquipo'); if (!s) return;
+  s.innerHTML = db.equipos.map(e => `<option value="${esc(e.id)}">${esc(e.nombre)}</option>`).join('');
+  s.value = appState.id; etiqueta();
+}
+function cambiarEquipo(id) {
+  const e = db.equipos.find(x => x.id === id); if (!e) return;
+  appState = e; db.activo = id; actaExtra = null; renderRivalActa();
+  ['inputRivalGuardar', 'puntosFavor', 'puntosRival', 'notasRival', 'fechaPartido'].forEach(k => { $(k).value = ''; });
+  saveState(); renderPlantilla();
+}
+function nuevoEquipoDlg() {
+  abrirDlg(`<h3>Nuevo equipo</h3>
+    <label for="neNombre"><b>Nombre (club y categoría)</b></label><input id="neNombre" placeholder="Ej: Mini Mi Club CB">
+    <label class="opt"><input type="checkbox" class="chk" id="neCopiar"><span>Copiar los jugadores del equipo actual (sin partidos ni estadísticas)</span></label>
+    <div class="row"><button class="blue" onclick="cerrarDlg()">Cancelar</button><button class="main" onclick="crearEquipo()">Crear</button></div>`);
+}
+function crearEquipo() {
+  const nombre = $('neNombre').value.trim();
+  if (!nombre) { alert('Escribe el nombre del equipo.'); return; }
+  const e = nuevoEquipo(nombre);
+  if ($('neCopiar').checked) e.jugadores = appState.jugadores.map(j => ({nombre: j.nombre, dorsal: j.dorsal, periodosTotales: 0, puntosTotales: 0, disponible: true}));
+  db.equipos.push(e); cerrarDlg(); cambiarEquipo(e.id);
+}
+function renombrarEquipoDlg() {
+  abrirDlg(`<h3>Renombrar equipo</h3>
+    <label for="reNombre"><b>Nombre (club y categoría)</b></label><input id="reNombre" value="${esc(appState.nombre)}">
+    <div class="row"><button class="blue" onclick="cerrarDlg()">Cancelar</button><button class="main" onclick="guardarNombreEquipo()">Guardar</button></div>`);
+}
+function guardarNombreEquipo() {
+  const n = $('reNombre').value.trim();
+  if (!n) { alert('Escribe el nombre del equipo.'); return; }
+  appState.nombre = n; saveState(); cerrarDlg(); renderPlantilla(); renderHistorico();
+}
+function eliminarEquipo() {
+  if (db.equipos.length < 2) { alert('Debe haber al menos un equipo. Crea otro antes de eliminar este.'); return; }
+  if (!confirm(`Se borrarán la plantilla, los partidos y las estadísticas de «${appState.nombre}». Haz antes una copia si la necesitas. ¿Continuar?`)) return;
+  db.equipos = db.equipos.filter(e => e.id !== appState.id);
+  cambiarEquipo(db.equipos[0].id);
 }
 
 /* ---------- Diálogo, edición de jugadores y alineación de vuelta ---------- */
@@ -666,6 +745,7 @@ function lanzarVuelta(i) {
 function partidosJugados(j) { return appState.partidos.filter(p => (p.periodos || {})[j.nombre] > 0).length; }
 
 function renderPlantilla() {
+  refrescarEquipos();
   $('modoReparto').value = MODOS[appState.modo] ? appState.modo : 'eq'; $('descModo').textContent = DESC_MODO[$('modoReparto').value];
   $('avisoVacio').style.display = appState.jugadores.length ? 'none' : 'block';
   $('tablaJugadores').innerHTML = appState.jugadores.map((j, i) => {
@@ -869,7 +949,7 @@ function renderRivalActa() {
   if (!x) { el.innerHTML = ''; return; }
   const sum = a => a.reduce((s, v) => s + (v || 0), 0);
   const par = x.par ? `<div class="wrap"><table><thead><tr><th></th>${[1,2,3,4,5,6,7,8].map(n => `<th>${n}</th>`).join('')}<th>Total</th></tr></thead><tbody>
-    <tr><td class="l">Montmeló</td>${x.par.f.map(v => `<td>${v}</td>`).join('')}<td><b>${sum(x.par.f)}</b></td></tr>
+    <tr><td class="l">${esc(appState.nombre)}</td>${x.par.f.map(v => `<td>${v}</td>`).join('')}<td><b>${sum(x.par.f)}</b></td></tr>
     <tr><td class="l">Rival</td>${x.par.c.map(v => `<td>${v}</td>`).join('')}<td><b>${sum(x.par.c)}</b></td></tr></tbody></table></div>` : '';
   const jug = `<div class="wrap"><table><thead><tr><th>#</th><th>Jugador rival</th><th>Periodos</th><th>Pts</th></tr></thead><tbody>${x.rivalJug.map(j =>
     `<tr><td>${esc(j.dorsal)}</td><td class="l">${esc(j.nombre)}</td><td>${j.periodos.length}</td><td>${j.pts}</td></tr>`).join('')}</tbody></table></div>`;
@@ -878,7 +958,7 @@ function renderRivalActa() {
 
 function aviso(txt, tipo) { $('actaEstado').innerHTML = `<div class="msg ${tipo || ''}">${esc(txt)}</div>`; }
 
-function parseActa(T) {
+function parseActa(T, ctx) {
   const num = s => /^\d{1,3}$/.test(s);
   const nrm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
   const eq = T.filter(w => w.s === 'Equip').sort((a, b) => a.t - b.t);
@@ -908,7 +988,17 @@ function parseActa(T) {
       return {dorsal: +d.s, periodos: per, t: d.t, nombre};
     });
   const tA = tabla(ent[0].t + 6, eq[3].t - 2), tB = tabla(ent[1].t + 6, 548);
-  out.local = nrm(nomA).includes('MONTMEL') ? true : nrm(nomB).includes('MONTMEL') ? false : null;
+  // ¿Cuál de los dos equipos es el nuestro? Se decide por los jugadores de la plantilla y, en menor medida, por el nombre del equipo.
+  const STOP = new Set(['CB', 'BC', 'CLUB', 'BASQUET', 'BASQUETBOL', 'MINI', 'MASCULI', 'FEMENI', 'DE', 'DEL', 'LA', 'LES', 'EL', 'ELS', 'UE', 'AE', 'CE', 'CD']);
+  const toks = s => nrm(s).replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 1 && !STOP.has(w));
+  const lado = (nom, tab) => {
+    const texto = ' ' + nrm(tab.map(m => m.nombre).join(' ')).replace(/[^A-Z0-9 ]/g, ' ') + ' ';
+    const jug = ((ctx && ctx.jugadores) || []).filter(n => { const t = toks(n); return t.length && t.filter(w => texto.includes(' ' + w + ' ')).length >= Math.ceil(t.length * 0.6); }).length;
+    const mine = toks((ctx && ctx.equipo) || ''), theirs = toks(nom);
+    return jug * 10 + (mine.length ? mine.filter(w => theirs.includes(w)).length / mine.length : 0) * 5;
+  };
+  { const a = lado(nomA, tA), b = lado(nomB, tB); out.local = a === b ? null : a > b; }
+  out.dudaEquipo = out.local === null;
   out.rival = (out.local === false ? nomA : nomB).trim();
   out.mios = out.local === false ? tB : tA;
   out.otros = out.local === false ? tA : tB;
@@ -979,7 +1069,7 @@ async function leerActa(file) {
         x1: it.transform[4] + it.width * (m.index + m[0].length) / s.length, t: H - it.transform[5]});
     });
     if (!T.length) { aviso('El PDF no contiene texto vectorial reconocible (parece un escaneo).', 'err'); return; }
-    const r = parseActa(T);
+    const r = parseActa(T, {equipo: appState.nombre, jugadores: appState.jugadores.map(j => j.nombre)});
     $('actaTexto').textContent = JSON.stringify(r, null, 1) + '\n\n' + T.map(w => w.s).join(' ').slice(0, 3000);
     if (!r || !r.mios.length) { aviso('No se ha reconocido la estructura del acta. Puedes rellenar los datos manualmente.', 'err'); return; }
 
@@ -1005,6 +1095,7 @@ async function leerActa(file) {
     if (fuera.length) av.push(`Dorsales del acta que no están en la plantilla: ${fuera.join(', ')}.`);
     const raros = porPeriodo.map((n, i) => n !== 5 ? `${i + 1}º (${n})` : '').filter(Boolean);
     if (raros.length) av.push(`Periodos sin 5 jugadores detectados: ${raros.join(', ')}.`);
+    if (r.dudaEquipo) av.push('No he podido saber cuál de los dos equipos es el tuyo (ni por el nombre del equipo ni por los jugadores): he supuesto que eres el Equip A. Revisa la condición.');
     if (r.resA === undefined) av.push('Resultado final no detectado.');
     aviso('Acta leída correctamente. ' + av.join(' ') + ' Revisa los campos antes de guardar.', av.length ? '' : 'good');
   } catch (e) {
@@ -1016,7 +1107,7 @@ async function leerActa(file) {
 function guardarPartidoEnHistorico() {
   const rival = $('inputRivalGuardar').value.trim() || 'Rival genérico';
   const pf = parseInt($('puntosFavor').value, 10), pr = parseInt($('puntosRival').value, 10);
-  if (isNaN(pf) || isNaN(pr)) { alert('Indica los puntos de Montmeló CB y del rival.'); return; }
+  if (isNaN(pf) || isNaN(pr)) { alert('Indica los puntos de tu equipo y del rival.'); return; }
   const periodos = {}, puntos = {}, perArr = {};
   appState.jugadores.forEach((j, i) => {
     perArr[j.nombre] = [...document.querySelectorAll(`.chk[data-j="${i}"]:checked`)].map(c => +c.dataset.p);
@@ -1054,7 +1145,7 @@ function renderHistorico() {
     const riv = rj.length ? `<details><summary>Jugadores del rival</summary><div class="wrap"><table><thead><tr><th>#</th><th>Jugador</th><th>Periodos</th><th>Pts</th></tr></thead><tbody>${(p.rivalJug || []).map(j => `<tr><td>${esc(j.dorsal)}</td><td class="l">${esc(j.nombre)}</td><td>${j.periodos.length}</td><td>${j.pts}</td></tr>`).join('')}</tbody></table></div></details>` : '';
     return `<div class="card" style="border-left:4px solid ${col}">
       <h4>vs ${esc(p.rival)} <span class="muted" style="font-weight:400; font-size:0.8em">(${esc(p.fecha)})</span></h4>
-      <p style="margin:8px 0"><span class="badge" style="background:${col}">${txt}</span> Montmeló CB <b>${a} - ${b}</b></p>${par}
+      <p style="margin:8px 0"><span class="badge" style="background:${col}">${txt}</span> ${esc(appState.nombre)} <b>${a} - ${b}</b></p>${par}
       ${p.notas ? `<p class="muted" style="color:var(--text)">${esc(p.notas)}</p>` : ''}
       <details><summary>Ver detalle individual</summary><div class="wrap"><table><thead><tr><th>Jugador</th><th>Periodos</th><th>Puntos</th></tr></thead><tbody>${filas}</tbody></table></div></details>${riv}
       <div style="margin-top:12px; display:flex; gap:8px">

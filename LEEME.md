@@ -1,12 +1,13 @@
-# Gestor Mini Básquet
+# Gestor de alineaciones minibásquet
 
 Aplicación web (PWA) para preparar alineaciones de minibásquet, leer actas de la FCBQ y llevar estadísticas.
+Permite gestionar **varios equipos** (club y categoría), cada uno con su plantilla, partidos y estadísticas.
 
 ## Privacidad
-- **Este repositorio solo contiene código. No debe contener nombres, actas ni copias de seguridad.**
-- Los datos (plantilla, partidos, rivales) se guardan únicamente en el dispositivo de quien usa la app
-  (`localStorage` + IndexedDB). La app no envía nada a ningún servidor y no usa claves de API.
-- El archivo `.gitignore` evita subir copias (`montmelo-cb-*.json`) y actas (`*.pdf`) por error.
+- **Este repositorio solo contiene código. No debe contener nombres de jugadores, actas ni copias de seguridad.**
+- Los datos se guardan únicamente en el dispositivo de quien usa la app (`localStorage` + IndexedDB).
+  La app no envía nada a ningún servidor y no usa claves de API.
+- El archivo `.gitignore` evita subir copias (`alineaciones-mini-*.json`) y actas (`*.pdf`) por error.
 - Las copias de seguridad pueden cifrarse con contraseña (AES-GCM) desde «Histórico».
 
 ## Instalar en el móvil

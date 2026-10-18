@@ -1,5 +1,5 @@
-# Copias de seguridad, actas y datos: NUNCA deben subirse al repositorio (es público)
-montmelo-cb-*.json
+# Copias de seguridad, actas y datos de equipos: NUNCA deben subirse al repositorio (es público)
+alineaciones-mini-*.json
 *.json
 !package.json
 *.pdf
