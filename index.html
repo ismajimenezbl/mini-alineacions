@@ -361,6 +361,7 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
   <div class="card">
     <h2>Plantilla</h2>
     <p class="muted">Desmarca la casilla «Disp.» para indicar los jugadores no disponibles para el próximo partido.</p>
+    <p class="muted" id="contDisp"></p>
     <div id="avisoVacio" class="msg" style="display:none">Aún no hay jugadores. <b>Lo más rápido es subir un acta de la FCBQ</b>: la app crea la plantilla sola.<br><button class="main" style="margin-top:10px" onclick="empezarConActa()">Subir un acta para empezar</button><br><span class="muted">También puedes añadirlos abajo o restaurar una copia desde «Histórico».</span></div>
     <div class="wrap"><table>
       <thead><tr><th>Disp.</th><th>#</th><th>Jugador/a</th><th>Partidos</th><th>Periodos</th><th>Puntos</th><th>Pts/periodo</th><th></th></tr></thead>
@@ -382,6 +383,17 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
         <option value="equi">Equitativo</option>
       </select>
       <p class="muted" id="descModo" style="margin-top:-6px; margin-bottom:14px"></p>
+      <label for="maxSeguidos"><b>Máximo de periodos seguidos en pista</b></label>
+      <select id="maxSeguidos" onchange="cambiarSeguidos(this.value)">
+        <option value="0">Sin límite</option>
+        <option value="2">2</option>
+        <option value="3">3 (por defecto)</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+        <option value="7">7</option>
+      </select>
+      <p class="muted" id="descSeguidos" style="margin-top:-6px; margin-bottom:14px"></p>
 
       <label for="rivalInputP1"><b>Próximo rival</b></label>
       <input id="rivalInputP1" placeholder="Nombre del equipo rival">
@@ -508,7 +520,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 const KEY = 'mini_alineaciones_db';
 const nuevoId = () => 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-const nuevoEquipo = nombre => ({id: nuevoId(), nombre, jugadores: [], partidos: [], propuestaActual: null, modo: 'eq'});
+const nuevoEquipo = nombre => ({id: nuevoId(), nombre, jugadores: [], partidos: [], propuestaActual: null, modo: 'eq', maxSeguidos: 3});
 
 /* Las claves antiguas se migran a las nuevas sin perder datos */
 [['montmelo_cb_db', KEY], ['montmelo_cb_meta', 'mini_alineaciones_meta'], ['montmelo_cb_pin', 'mini_alineaciones_pin']].forEach(([o, n]) => {
@@ -677,9 +689,9 @@ const PASOS = [
    art: '<span class="chip on">📄 acta.pdf</span><span class="flecha">→</span><div class="lista"><div><b>#8</b><i></i>6 per.</div><div><b>#9</b><i></i>5 per.</div><div><b>#13</b><i></i>4 per.</div></div>',
    txt: '<p>👉 <b>Lo más rápido para empezar:</b> en «Registro del partido» sube el PDF del acta de la FCBQ.</p><p>La app crea tu plantilla con los jugadores del acta, carga los <b>periodos y puntos</b> de cada uno y guarda también los datos del rival.</p>'},
   {t: 'Plantilla y equipos', art: '<span class="chip on">Competitivo</span><span class="chip">Equilibrio</span><span class="chip">Equitativo</span>',
-   txt: '<p>En <b>Plantilla</b> puedes tener varios equipos (club y categoría), marcar quién está <b>disponible</b>, editar dorsales y elegir cómo repartir los periodos:</p><p><b>Competitivo</b> prima a los mejores, <b>Equilibrio</b> da a todos 4-6 periodos y <b>Equitativo</b> los mismos a todos.</p>'},
+   txt: '<p>En <b>Plantilla</b> puedes tener varios equipos (club y categoría), marcar quién está <b>disponible</b> (entre 7 y 12 por partido), editar dorsales y elegir cómo repartir los periodos:</p><p><b>Competitivo</b> prima a los mejores, <b>Equilibrio</b> da a todos 4-6 periodos y <b>Equitativo</b> los mismos a todos.</p>'},
   {t: 'Propuesta de quintetos', art: '<div class="per"><span class="on">P1</span><span>P2</span><span>P3</span><span>P4</span><span>P5</span><span>P6</span><span>P7</span><span>P8</span></div>',
-   txt: '<p>Genera los 8 quintetos cumpliendo la <b>normativa</b> (mínimo 2 periodos antes del 6º) y el <b>descanso</b> (máximo 3 seguidos).</p><p>Durante el partido, pulsa <b>Siguiente ▶</b> para dar las salidas a la mesa y a los jugadores.</p>'},
+   txt: '<p>Genera los 8 quintetos cumpliendo la <b>normativa</b> (mínimo 2 periodos antes del 6º) y tu <b>límite de periodos seguidos</b> (por defecto 3; puedes cambiarlo o quitarlo en Plantilla).</p><p>Durante el partido, pulsa <b>Siguiente ▶</b> para dar las salidas a la mesa y a los jugadores.</p>'},
   {t: 'Histórico y partido de vuelta', art: '<span class="chip">32 - 25</span><span class="flecha">→</span><span class="chip on">🔁 Alineación de vuelta</span>',
    txt: '<p>Cada partido guardado muestra sus <b>parciales</b> y los jugadores del rival.</p><p>Con <b>«Alineación de vuelta»</b> eliges el modo y quién juega, y la propuesta tiene en cuenta cómo jugó el rival en la ida.</p>'},
   {t: 'Tus datos, a salvo', art: '<div class="big">🔒</div><span class="flecha">+</span><div class="big">💾</div>',
@@ -803,14 +815,16 @@ function abrirVuelta(i) {
 }
 
 function contarVuelta() {
-  const n = document.querySelectorAll('.vJug:checked').length;
-  $('vCuenta').textContent = n + ' jugadores seleccionados' + (n < 5 ? ' (mínimo 5)' : n < 7 ? ' · con 6 o menos la propuesta no puede cumplir todas las reglas de descanso' : '');
+  const n = document.querySelectorAll('.vJug:checked').length, L = seguidos(), min = minJugadores(L), m = reglaConvocatoria(n);
+  $('vCuenta').textContent = n + ' jugadores seleccionados (entre ' + MIN_JUG + ' y ' + MAX_JUG + ')' + (m ? ' · ' + (n < MIN_JUG ? 'faltan' : 'sobran') + ' jugadores' : n < min ? ` · con menos de ${min} no se puede cumplir el límite de ${L} periodos seguidos` : '');
+  $('vCuenta').style.color = m ? 'var(--bad)' : '';
 }
 
 /* Los jugadores marcados quedan como «disponibles» y el modo elegido pasa a ser el modo actual. */
 function lanzarVuelta(i) {
   const cks = [...document.querySelectorAll('.vJug')];
-  if (cks.filter(c => c.checked).length < 5) { alert('Hace falta un mínimo de 5 jugadores.'); return; }
+  const motivoV = reglaConvocatoria(cks.filter(c => c.checked).length);
+  if (motivoV) { alert(motivoV); return; }
   cks.forEach(c => { appState.jugadores[+c.dataset.k].disponible = c.checked; });
   appState.modo = $('vModo').value; saveState(); cerrarDlg(); generarVuelta(i);
 }
@@ -819,13 +833,13 @@ function lanzarVuelta(i) {
 function partidosJugados(j) { return appState.partidos.filter(p => (p.periodos || {})[j.nombre] > 0).length; }
 
 function renderPlantilla() {
-  refrescarEquipos();
+  refrescarEquipos(); pintarSeguidos(); renderContDisp();
   $('modoReparto').value = MODOS[appState.modo] ? appState.modo : 'eq'; $('descModo').textContent = DESC_MODO[$('modoReparto').value];
   $('avisoVacio').style.display = appState.jugadores.length ? 'none' : 'block';
   $('tablaJugadores').innerHTML = appState.jugadores.map((j, i) => {
     const pj = partidosJugados(j);
     return `<tr>
-      <td><input type="checkbox" class="chk" aria-label="Disponible" ${j.disponible ? 'checked' : ''} onchange="appState.jugadores[${i}].disponible=this.checked;saveState()"></td>
+      <td><input type="checkbox" class="chk" aria-label="Disponible" ${j.disponible ? 'checked' : ''} onchange="appState.jugadores[${i}].disponible=this.checked;saveState();renderContDisp()"></td>
       <td><b>#${esc(j.dorsal)}</b></td><td class="l">${esc(j.nombre)}</td>
       <td>${pj}</td><td>${j.periodosTotales || 0}</td><td>${j.puntosTotales || 0}</td>
       <td>${j.periodosTotales ? (j.puntosTotales / j.periodosTotales).toFixed(2) : '–'}</td>
@@ -867,9 +881,29 @@ function valorJugador() {
    Competitivo: solo lo anterior. Equilibrio: además cada jugador 4-6 periodos.
    Equitativo: además todos juegan los mismos periodos (si 40 no se divide entre los jugadores, la diferencia máxima es 1). */
 const MODOS = {comp: 'Competitivo', eq: 'Equilibrio', equi: 'Equitativo'};
+
+/* Máximo de periodos seguidos en pista: es un criterio de reparto ajustable por equipo (0 = sin límite; por defecto, 3). */
+const seguidos = () => { const v = appState.maxSeguidos; return v === undefined || v === null || isNaN(+v) ? 3 : +v; };
+/* Jugadores mínimos para poder cumplir el límite (cada uno necesita descansar al menos 1 de cada L+1 periodos) y la normativa (máx. 5 en los 6 primeros) */
+const MIN_JUG = 7, MAX_JUG = 12;   // normativa: jugadores por partido
+const minJugadores = L => Math.max(MIN_JUG, L ? Math.ceil(5 + 5 / L) : MIN_JUG);
+/* Devuelve el motivo si el número de jugadores no vale para jugar un partido, o '' si está bien */
+const reglaConvocatoria = n => n < MIN_JUG ? `La normativa exige un mínimo de ${MIN_JUG} jugadores por partido; ahora hay ${n} disponibles.`
+  : n > MAX_JUG ? `La normativa permite un máximo de ${MAX_JUG} jugadores por partido; ahora hay ${n} marcados como disponibles. Desmarca a ${n - MAX_JUG}.` : '';
+function renderContDisp() {
+  const n = appState.jugadores.filter(j => j.disponible).length, m = reglaConvocatoria(n), el = $('contDisp');
+  el.textContent = `Disponibles para el partido: ${n} (la normativa exige entre ${MIN_JUG} y ${MAX_JUG}).` + (m ? ' ⚠️ ' + (n < MIN_JUG ? 'Faltan jugadores.' : 'Sobran jugadores.') : '');
+  el.style.color = m ? 'var(--bad)' : 'var(--ok)';
+}
+function pintarSeguidos() {
+  const L = seguidos(); $('maxSeguidos').value = String(L);
+  $('descSeguidos').textContent = L ? `Nadie juega más de ${L} periodos seguidos. Con este límite hacen falta al menos ${minJugadores(L)} jugadores disponibles (y como máximo ${MAX_JUG}).`
+    : 'Sin límite de periodos seguidos. Se sigue cumpliendo la normativa (mínimo 2 periodos antes del 6º y máximo 5 en los 6 primeros; entre 7 y 12 jugadores por partido).';
+}
+function cambiarSeguidos(v) { appState.maxSeguidos = +v; saveState(); pintarSeguidos(); }
 const DESC_MODO = {
-  comp: 'Cumple la normativa y el descanso (máx. 3 periodos seguidos). Sin reparto obligatorio: juegan más los mejor valorados.',
-  eq: 'Además de lo anterior, cada jugador juega entre 4 y 6 periodos.',
+  comp: 'Cumple la normativa y tu límite de periodos seguidos. Sin reparto obligatorio: juegan más los mejor valorados.',
+  eq: 'Además de lo anterior, cada jugador juega entre 4 y 6 periodos (con 11 o 12 jugadores no caben 4 para todos: entre 3 y 6).',
   equi: 'Además de lo anterior, todos juegan los mismos periodos (si no sale exacto, la diferencia máxima es de 1).'
 };
 function cambiarModo(v) { appState.modo = v; saveState(); $('descModo').textContent = DESC_MODO[v]; }
@@ -891,7 +925,7 @@ function buscar(disp, pesos, v, cfg, its) {
           if (urg <= 0) must = true; else if (urg < 4) s += 6 / urg;
           if (p <= 5 && c6[n] >= 5) ban = true;
           if (cfg.hi !== undefined && c[n] >= cfg.hi) ban = true;
-          if (cfg.rc && rac[n] >= 3) ban = true;
+          if (cfg.rc && rac[n] >= cfg.rc) ban = true;
         }
         return [must ? s + 1e3 : ban ? s - 1e3 : s, n, must, ban];
       }).sort((a, b) => b[0] - a[0]);
@@ -918,11 +952,11 @@ function optimizar(disp, pesos) {
   const modo = MODOS[appState.modo] ? appState.modo : 'eq', N = disp.length, avg = 40 / N;
   const reparto = modo === 'eq' ? {lo: Math.min(4, Math.floor(avg)), hi: Math.min(8, Math.max(6, Math.ceil(avg)))}
     : modo === 'equi' ? {lo: Math.floor(avg), hi: Math.ceil(avg)} : {};
-  const hay = Object.keys(reparto).length;
-  const niveles = [[{...reparto, rc: 1}, '']];
-  if (modo === 'equi') niveles.push([{lo: reparto.lo - 1, hi: reparto.hi + 1, rc: 1}, 'No ha sido posible un reparto exactamente equitativo con estas condiciones: la diferencia entre jugadores es de hasta 2 periodos.']);
-  if (hay) niveles.push([{rc: 1}, `No he podido cumplir el reparto del modo ${MODOS[modo]}; he aplicado solo la normativa y el descanso.`]);
-  niveles.push([{}, 'No he podido evitar que alguien juegue 4 periodos seguidos (con tan pocos jugadores es imposible evitarlo).']);
+  const L = seguidos(), hay = Object.keys(reparto).length;
+  const niveles = [[{...reparto, rc: L}, '']];
+  if (modo === 'equi') niveles.push([{lo: reparto.lo - 1, hi: reparto.hi + 1, rc: L}, 'No ha sido posible un reparto exactamente equitativo con estas condiciones: la diferencia entre jugadores es de hasta 2 periodos.']);
+  if (hay) niveles.push([{rc: L}, `No he podido cumplir el reparto del modo ${MODOS[modo]}; he aplicado solo la normativa${L ? ' y el límite de periodos seguidos' : ''}.`]);
+  if (L) niveles.push([{}, `No he podido evitar que alguien juegue ${L + 1} periodos seguidos: con los jugadores disponibles no es posible cumplir el límite de ${L}.`]);
   for (let k = 0; k < niveles.length; k++) {
     const r = buscar(disp, pesos, v, niveles[k][0]) || (k === 0 ? buscar(disp, pesos, v, niveles[k][0], 10000) : null);
     if (r) {
@@ -938,9 +972,10 @@ function optimizar(disp, pesos) {
 
 function crearPropuesta(rival, pesos, nota, rivalAlin) {
   const disp = appState.jugadores.filter(j => j.disponible);
-  if (disp.length < 5) { alert('Hace falta un mínimo de 5 jugadores disponibles.'); return; }
+  const motivo = reglaConvocatoria(disp.length);
+  if (motivo) { alert(motivo + ' Ajusta quién está disponible en la pestaña Plantilla.'); return; }
   const r = optimizar(disp, pesos);
-  appState.propuestaActual = {rival, alineacion: r.al, conteo: r.cnt, pesos, nota, aviso: r.aviso, info: r.info || '', rivalAlin: rivalAlin || null, modo: appState.modo || 'eq', actual: 0};
+  appState.propuestaActual = {rival, alineacion: r.al, conteo: r.cnt, pesos, nota, aviso: r.aviso, info: r.info || '', rivalAlin: rivalAlin || null, modo: appState.modo || 'eq', seg: seguidos(), actual: 0};
   saveState(); $('inputRivalGuardar').value = rival;
   navigateTo('tab-propuesta', 'Propuesta de Alineación');
 }
@@ -988,7 +1023,7 @@ function renderPropuesta() {
   const tag = (n, big) => `<span class="tag"${big ? ' style="font-size:1.1em;padding:8px 12px"' : ''}>#${esc(dors(n) ?? '?')} ${esc(n.split(' ')[0])}</span>`;
   const a = pr.actual || 0, sel = pr.alineacion[a], todos = appState.jugadores.filter(j => j.disponible).map(j => j.nombre);
   $('tituloRivalPropuesta').textContent = 'Rival: ' + pr.rival;
-  $('tituloRivalPropuesta').textContent = 'Rival: ' + pr.rival + ' · Modo ' + (MODOS[pr.modo] || 'Equilibrio');
+  $('tituloRivalPropuesta').textContent = 'Rival: ' + pr.rival + ' · Modo ' + (MODOS[pr.modo] || 'Equilibrio') + ' · ' + ((pr.seg === undefined ? 3 : pr.seg) ? 'máx. ' + (pr.seg === undefined ? 3 : pr.seg) + ' seguidos' : 'sin límite de seguidos');
   $('notaPropuesta').textContent = [pr.nota, pr.info ? 'ℹ️ ' + pr.info : '', pr.aviso ? '⚠️ ' + pr.aviso : ''].filter(Boolean).join(' ');
   $('periodoActual').innerHTML = `<h3 style="margin:0 0 8px">Periodo ${a + 1} de 8</h3><div>${sel.map(n => tag(n, 1)).join('')}</div>` +
     (a < 7 ? `<p class="muted" style="margin-top:8px">Siguiente: ${pr.alineacion[a + 1].map(n => tag(n)).join('')}</p>` : '') +
@@ -1216,6 +1251,7 @@ function aplicarActa(r) {
     if (fuera.length) av.push(`Dorsales del acta que no están en la plantilla (no se han cargado sus periodos ni puntos): ${fuera.join(', ')}.`);
     const raros = porPeriodo.map((n, i) => n !== 5 ? `${i + 1}º (${n})` : '').filter(Boolean);
     if (raros.length) av.push(`Periodos sin 5 jugadores detectados: ${raros.join(', ')}.`);
+    if (r.mios.length < MIN_JUG) av.push(`El acta tiene solo ${r.mios.length} jugadores de tu equipo (la normativa exige al menos ${MIN_JUG}): revisa que se haya leído bien.`);
     if (r.dudaEquipo) av.push('No he podido saber cuál de los dos equipos es el tuyo (ni por el nombre del equipo ni por los jugadores): he supuesto que eres el Equip A. Revisa la condición.');
     if (r.resA === undefined) av.push('Resultado final no detectado.');
     aviso('Acta leída correctamente. ' + av.join(' ') + ' Revisa los campos antes de guardar.', av.length ? '' : 'good');
