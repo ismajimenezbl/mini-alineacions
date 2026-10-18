@@ -701,13 +701,17 @@ function editarJugador(i) {
     <div class="row"><button class="blue" onclick="cerrarDlg()">Cancelar</button><button class="main" onclick="guardarJugador(${i})">Guardar</button></div>`);
 }
 
+function fijarDorsales(j) {
+  appState.partidos.forEach(p => { p.dorsales = p.dorsales || {}; if (p.dorsales[j.nombre] === undefined && (p.periodos || {})[j.nombre] !== undefined) p.dorsales[j.nombre] = j.dorsal; });
+}
+
 function guardarJugador(i) {
   const j = appState.jugadores[i], nombre = $('edNombre').value.trim().toUpperCase(), dorsal = parseInt($('edDorsal').value, 10);
   if (!nombre || isNaN(dorsal)) { alert('Escribe el nombre y el dorsal.'); return; }
   if (appState.jugadores.some((x, k) => k !== i && x.dorsal === dorsal)) { alert('Ya hay otro jugador con el dorsal ' + dorsal + '.'); return; }
   if (appState.jugadores.some((x, k) => k !== i && x.nombre === nombre)) { alert('Ya hay otro jugador con ese nombre.'); return; }
   const viejo = j.nombre;
-  appState.partidos.forEach(p => { p.dorsales = p.dorsales || {}; if (p.dorsales[viejo] === undefined && (p.periodos || {})[viejo] !== undefined) p.dorsales[viejo] = j.dorsal; });
+  fijarDorsales(j);
   if (nombre !== viejo) renombrar(viejo, nombre);
   j.dorsal = dorsal;
   saveState(); cerrarDlg(); renderPlantilla();
@@ -1073,8 +1077,55 @@ async function leerActa(file) {
     $('actaTexto').textContent = JSON.stringify(r, null, 1) + '\n\n' + T.map(w => w.s).join(' ').slice(0, 3000);
     if (!r || !r.mios.length) { aviso('No se ha reconocido la estructura del acta. Puedes rellenar los datos manualmente.', 'err'); return; }
 
+    const faltan = r.mios.filter(m => !appState.jugadores.some(j => j.dorsal === m.dorsal));
+    if (faltan.length) { proponerAltas(r, faltan); return; }
+    aplicarActa(r);
+  } catch (e) {
+    console.error(e);
+    aviso('No se ha podido leer el archivo. Rellena los datos manualmente.', 'err');
+  }
+}
+
+/* Si el acta trae jugadores que no están en la plantilla, se ofrece añadirlos (o actualizar su dorsal si ya existen con otro) */
+let actaPend = null;
+const parecido = (a, b) => {
+  const ta = norm(a).split(/[^A-Z0-9]+/).filter(w => w.length > 2), tb = ' ' + norm(b).replace(/[^A-Z0-9]+/g, ' ') + ' ';
+  return ta.length > 0 && ta.filter(w => tb.includes(' ' + w + ' ')).length >= Math.ceil(ta.length * 0.6);
+};
+function proponerAltas(r, faltan) {
+  const enActa = new Set(r.mios.map(m => m.dorsal)), usados = new Set();
+  const filas = faltan.map(m => {
+    const k = appState.jugadores.findIndex((j, i) => !usados.has(i) && !enActa.has(j.dorsal) && m.nombre && parecido(j.nombre, m.nombre));
+    if (k >= 0) usados.add(k);
+    return {m, k};
+  });
+  actaPend = {r, filas};
+  const n = filas.length;
+  abrirDlg(`<h3>Jugadores del acta</h3>
+    <p class="muted">El acta trae ${n} jugador${n > 1 ? 'es' : ''} de tu equipo que no ${n > 1 ? 'están' : 'está'} en la plantilla de «${esc(appState.nombre)}». Se añaden con el nombre del acta y luego puedes editarlos.</p>
+    ${filas.map((f, i) => `<label class="opt"><input type="checkbox" class="chk altaJ" data-i="${i}" checked><span><b>#${esc(f.m.dorsal)}</b> ${esc(f.m.nombre || 'Sin nombre')} <small class="muted">${f.k >= 0 ? `(es ${esc(appState.jugadores[f.k].nombre)}: cambia su dorsal de #${esc(appState.jugadores[f.k].dorsal)} a #${esc(f.m.dorsal)})` : '(nuevo)'}</small></span></label>`).join('')}
+    <div class="row"><button class="blue" onclick="altasActa(false)">Ahora no</button><button class="main" onclick="altasActa(true)">Añadir y continuar</button></div>`);
+}
+function altasActa(si) {
+  const {r, filas} = actaPend; actaPend = null;
+  if (si) {
+    [...document.querySelectorAll('.altaJ')].forEach(c => {
+      if (!c.checked) return;
+      const f = filas[+c.dataset.i];
+      if (f.k >= 0) { const j = appState.jugadores[f.k]; fijarDorsales(j); j.dorsal = f.m.dorsal; return; }
+      let nombre = (f.m.nombre || 'JUGADOR ' + f.m.dorsal).trim().toUpperCase();
+      if (appState.jugadores.some(j => j.nombre === nombre)) nombre += ' (#' + f.m.dorsal + ')';
+      appState.jugadores.push({nombre, dorsal: f.m.dorsal, periodosTotales: 0, puntosTotales: 0, disponible: true});
+    });
+    saveState(); renderPlantilla();
+  }
+  cerrarDlg(); aplicarActa(r);
+}
+
+function aplicarActa(r) {
+  try {
     renderTablaResultadoRapido();
-    document.querySelectorAll('.chk').forEach(cb => cb.checked = false);
+    document.querySelectorAll('.chk[data-p]').forEach(cb => cb.checked = false);
     const fuera = [], porPeriodo = Array(8).fill(0);
     r.mios.forEach(m => {
       m.periodos.forEach(p => porPeriodo[p - 1]++);
@@ -1092,7 +1143,7 @@ async function leerActa(file) {
     renderRivalActa();
     const av = [];
     if (r.sinDorsal) av.push(`Puntos sin dorsal asignado: ${r.sinDorsal}.`);
-    if (fuera.length) av.push(`Dorsales del acta que no están en la plantilla: ${fuera.join(', ')}.`);
+    if (fuera.length) av.push(`Dorsales del acta que no están en la plantilla (no se han cargado sus periodos ni puntos): ${fuera.join(', ')}.`);
     const raros = porPeriodo.map((n, i) => n !== 5 ? `${i + 1}º (${n})` : '').filter(Boolean);
     if (raros.length) av.push(`Periodos sin 5 jugadores detectados: ${raros.join(', ')}.`);
     if (r.dudaEquipo) av.push('No he podido saber cuál de los dos equipos es el tuyo (ni por el nombre del equipo ni por los jugadores): he supuesto que eres el Equip A. Revisa la condición.');
