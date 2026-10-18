@@ -275,6 +275,32 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
 #dlg { display: none; position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.45); align-items: center; justify-content: center; padding: 16px; }
 #dlg.open { display: flex; }
 #dlg .card { width: 100%; max-width: 460px; max-height: 90vh; overflow: auto; margin: 0; }
+#tour { display: none; position: fixed; inset: 0; z-index: 800; background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 16px; }
+#tour.open { display: flex; }
+#tourBox { width: 100%; max-width: 440px; max-height: 92vh; overflow: auto; background: var(--card); border-radius: 20px; padding: 18px 20px 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+#tourBox h3 { margin: 4px 0 0; font-size: 1.15rem; }
+.tour-top { display: flex; justify-content: space-between; align-items: center; min-height: 30px; }
+.tour-top .paso { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
+.tour-top button { width: auto; margin: 0; padding: 4px 10px; background: none; border: 0; color: var(--text-muted); font-size: 0.85rem; }
+.tour-art { background: var(--primary-light); border-radius: 16px; min-height: 130px; margin: 6px 0 14px; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; color: var(--text); }
+.tour-art .big { font-size: 3.4rem; line-height: 1; }
+.tour-art .chip { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 7px 11px; font-size: 0.8rem; font-weight: 600; box-shadow: var(--shadow); }
+.tour-art .chip.on { background: var(--primary); color: #fff; border-color: var(--primary); }
+.tour-art .flecha { font-size: 1.4rem; color: var(--primary); font-weight: 700; }
+.tour-art .lista { background: var(--card); border-radius: 10px; padding: 8px 10px; font-size: 0.75rem; box-shadow: var(--shadow); text-align: left; }
+.tour-art .lista div { display: flex; gap: 8px; align-items: center; padding: 2px 0; }
+.tour-art .lista i { display: inline-block; height: 7px; width: 54px; border-radius: 4px; background: var(--line); }
+.tour-art .per { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.tour-art .per span { background: var(--card); border-radius: 8px; padding: 5px 8px; font-size: 0.7rem; font-weight: 700; box-shadow: var(--shadow); }
+.tour-art .per span.on { background: var(--primary); color: #fff; }
+.bubble { position: relative; background: var(--secondary-light); border-radius: 16px; padding: 12px 14px; margin: 14px 0 12px; font-size: 0.92rem; line-height: 1.45; }
+.bubble::before { content: ''; position: absolute; top: -8px; left: 26px; border: 8px solid transparent; border-top: 0; border-bottom-color: var(--secondary-light); }
+.bubble.rec { background: var(--ok-light); }
+.bubble.rec::before { border-bottom-color: var(--ok-light); }
+.bubble p { margin: 0 0 6px; } .bubble p:last-child { margin: 0; }
+.dots { display: flex; justify-content: center; gap: 6px; margin: 10px 0 12px; }
+.dots span { width: 8px; height: 8px; border-radius: 8px; background: #d0d5dd; }
+.dots span.on { width: 22px; background: var(--primary); }
 .opt { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 0.9rem; color: var(--text-muted); }
 .opt .chk { flex: none; margin: 0; }
 </style>
@@ -301,6 +327,8 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
   <p class="muted" id="pinError" style="color:var(--bad)"></p>
 </div>
 
+<div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitulo"><div id="tourBox"></div></div>
+
 <div id="dlg" onclick="if(event.target===this)cerrarDlg()"><div class="card" id="dlgBody"></div></div>
 
 <div id="bannerCopia" class="msg" style="display:none; margin:12px 16px; cursor:pointer" onclick="copiaSeguridad()"></div>
@@ -313,6 +341,7 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
   <button id="btn-tab-propuesta" onclick="navigateTo('tab-propuesta', 'Propuesta de Alineación')">Propuesta</button>
   <button id="btn-tab-resultado" onclick="navigateTo('tab-resultado', 'Registro del Partido')">Registro del Partido</button>
   <button id="btn-tab-partidos-guardados" onclick="navigateTo('tab-partidos-guardados', 'Histórico de Partidos')">Histórico</button>
+  <button onclick="cerrarMenu(); abrirTour(0)">Cómo funciona</button>
 </nav>
 
 <!-- PLANTILLA -->
@@ -332,7 +361,7 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
   <div class="card">
     <h2>Plantilla</h2>
     <p class="muted">Desmarca la casilla «Disp.» para indicar los jugadores no disponibles para el próximo partido.</p>
-    <div id="avisoVacio" class="msg" style="display:none">Aún no hay jugadores. Añádelos abajo o restaura una copia de seguridad desde «Histórico».</div>
+    <div id="avisoVacio" class="msg" style="display:none">Aún no hay jugadores. <b>Lo más rápido es subir un acta de la FCBQ</b>: la app crea la plantilla sola.<br><button class="main" style="margin-top:10px" onclick="empezarConActa()">Subir un acta para empezar</button><br><span class="muted">También puedes añadirlos abajo o restaurar una copia desde «Histórico».</span></div>
     <div class="wrap"><table>
       <thead><tr><th>Disp.</th><th>#</th><th>Jugador/a</th><th>Partidos</th><th>Periodos</th><th>Puntos</th><th>Pts/periodo</th><th></th></tr></thead>
       <tbody id="tablaJugadores"></tbody>
@@ -465,10 +494,12 @@ function toggleMenu() {
 let tituloActual = 'Plantilla';
 function etiqueta() { document.getElementById('active-tab-label').textContent = tituloActual + ' · ' + appState.nombre; }
 
+function cerrarMenu() { ['menuBtn', 'sideNav', 'navBackdrop'].forEach(id => document.getElementById(id).classList.remove('open')); }
+
 function navigateTo(tabId, title) {
   showTab(tabId);
   tituloActual = title; etiqueta();
-  toggleMenu();
+  cerrarMenu();
 }
 
 /* ---------- CORE LOGIC ---------- */
@@ -624,6 +655,7 @@ async function arrancar(hadLocal) {
     const d = await idbGet();
     if (d && (Array.isArray(d.equipos) || Array.isArray(d.jugadores))) { activar(d); saveState(); renderPlantilla(); actualizarCopia(); }
   }
+  if (!meta().tour && db.equipos.every(e => !e.jugadores.length && !e.partidos.length)) abrirTour(0);
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
@@ -636,6 +668,44 @@ function showTab(id) {
 
   ({'tab-equipos':renderPlantilla,'tab-propuesta':renderPropuesta,'tab-resultado':renderTablaResultadoRapido,'tab-partidos-guardados':renderHistorico})[id]();
 }
+
+/* ---------- Tutorial de primer uso ---------- */
+const PASOS = [
+  {t: 'Bienvenido/a', art: '<div class="big">🏀</div>',
+   txt: '<p>Esta app te ayuda a <b>preparar los quintetos de los 8 periodos</b>, leer las <b>actas de la FCBQ</b> y llevar las <b>estadísticas</b> de tu equipo.</p><p>En un minuto te cuento cómo funciona.</p>'},
+  {t: 'Empieza con un acta', rec: 1,
+   art: '<span class="chip on">📄 acta.pdf</span><span class="flecha">→</span><div class="lista"><div><b>#8</b><i></i>6 per.</div><div><b>#9</b><i></i>5 per.</div><div><b>#13</b><i></i>4 per.</div></div>',
+   txt: '<p>👉 <b>Lo más rápido para empezar:</b> en «Registro del partido» sube el PDF del acta de la FCBQ.</p><p>La app crea tu plantilla con los jugadores del acta, carga los <b>periodos y puntos</b> de cada uno y guarda también los datos del rival.</p>'},
+  {t: 'Plantilla y equipos', art: '<span class="chip on">Competitivo</span><span class="chip">Equilibrio</span><span class="chip">Equitativo</span>',
+   txt: '<p>En <b>Plantilla</b> puedes tener varios equipos (club y categoría), marcar quién está <b>disponible</b>, editar dorsales y elegir cómo repartir los periodos:</p><p><b>Competitivo</b> prima a los mejores, <b>Equilibrio</b> da a todos 4-6 periodos y <b>Equitativo</b> los mismos a todos.</p>'},
+  {t: 'Propuesta de quintetos', art: '<div class="per"><span class="on">P1</span><span>P2</span><span>P3</span><span>P4</span><span>P5</span><span>P6</span><span>P7</span><span>P8</span></div>',
+   txt: '<p>Genera los 8 quintetos cumpliendo la <b>normativa</b> (mínimo 2 periodos antes del 6º) y el <b>descanso</b> (máximo 3 seguidos).</p><p>Durante el partido, pulsa <b>Siguiente ▶</b> para dar las salidas a la mesa y a los jugadores.</p>'},
+  {t: 'Histórico y partido de vuelta', art: '<span class="chip">32 - 25</span><span class="flecha">→</span><span class="chip on">🔁 Alineación de vuelta</span>',
+   txt: '<p>Cada partido guardado muestra sus <b>parciales</b> y los jugadores del rival.</p><p>Con <b>«Alineación de vuelta»</b> eliges el modo y quién juega, y la propuesta tiene en cuenta cómo jugó el rival en la ida.</p>'},
+  {t: 'Tus datos, a salvo', art: '<div class="big">🔒</div><span class="flecha">+</span><div class="big">💾</div>',
+   txt: '<p>Todo se guarda <b>solo en este dispositivo</b>; nada se envía a ningún servidor.</p><p>Haz una <b>copia de seguridad</b> de vez en cuando desde «Histórico» (puedes cifrarla con contraseña). Si borras los datos del navegador sin copia, se pierden.</p>'},
+  {t: '¡Listo para empezar!', rec: 1, art: '<div class="big">📄</div><span class="flecha">→</span><div class="big">📋</div>',
+   txt: '<p>Te recomiendo <b>empezar subiendo un acta de la FCBQ</b> de un partido ya jugado: en unos segundos tendrás plantilla, estadísticas y datos del rival.</p><p>Puedes volver a ver esta guía desde el menú, en «Cómo funciona».</p>'}
+];
+let paso = 0;
+
+function abrirTour(i) { paso = i || 0; $('tour').classList.add('open'); pintarTour(); }
+function cerrarTour() { $('tour').classList.remove('open'); setMeta({tour: true}); }
+function tourMov(d) { paso = Math.max(0, Math.min(PASOS.length - 1, paso + d)); pintarTour(); }
+function pintarTour() {
+  const p = PASOS[paso], ult = paso === PASOS.length - 1;
+  $('tourBox').innerHTML = `<div class="tour-top"><span class="paso">${paso + 1} de ${PASOS.length}</span>${ult ? '' : '<button onclick="cerrarTour()">Saltar</button>'}</div>
+    <div class="tour-art">${p.art}</div>
+    <h3 id="tourTitulo">${p.t}</h3>
+    <div class="bubble${p.rec ? ' rec' : ''}">${p.txt}</div>
+    <div class="dots">${PASOS.map((_, i) => `<span class="${i === paso ? 'on' : ''}"></span>`).join('')}</div>` +
+    (ult ? `<button class="main" onclick="empezarConActa()">📄 Subir un acta para empezar</button>
+            <button class="blue" onclick="empezarManual()">Prefiero añadir los jugadores a mano</button>
+            <button style="background:none;border:0;color:var(--text-muted)" onclick="tourMov(-1)">← Volver</button>`
+         : `<div class="row">${paso ? '<button class="blue" onclick="tourMov(-1)">← Atrás</button>' : ''}<button class="main" onclick="tourMov(1)">Siguiente →</button></div>`);
+}
+function empezarConActa() { cerrarTour(); navigateTo('tab-resultado', 'Registro del Partido'); $('actaFile').click(); }
+function empezarManual() { cerrarTour(); navigateTo('tab-equipos', 'Plantilla'); }
 
 /* ---------- Equipos ---------- */
 function refrescarEquipos() {
