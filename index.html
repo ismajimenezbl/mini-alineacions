@@ -271,6 +271,9 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
 #lock { display: none; position: fixed; inset: 0; z-index: 9999; background: var(--bg); flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center; }
 .locked #lock { display: flex; }
 #lock input { max-width: 220px; text-align: center; font-size: 1.4rem; letter-spacing: 6px; }
+#dlg { display: none; position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.45); align-items: center; justify-content: center; padding: 16px; }
+#dlg.open { display: flex; }
+#dlg .card { width: 100%; max-width: 460px; max-height: 90vh; overflow: auto; margin: 0; }
 .opt { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 0.9rem; color: var(--text-muted); }
 .opt .chk { flex: none; margin: 0; }
 </style>
@@ -296,6 +299,8 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
   <button class="main" style="max-width:220px" onclick="desbloquear()">Entrar</button>
   <p class="muted" id="pinError" style="color:var(--bad)"></p>
 </div>
+
+<div id="dlg" onclick="if(event.target===this)cerrarDlg()"><div class="card" id="dlgBody"></div></div>
 
 <div id="bannerCopia" class="msg" style="display:none; margin:12px 16px; cursor:pointer" onclick="copiaSeguridad()"></div>
 
@@ -595,6 +600,68 @@ function showTab(id) {
   ({'tab-equipos':renderPlantilla,'tab-propuesta':renderPropuesta,'tab-resultado':renderTablaResultadoRapido,'tab-partidos-guardados':renderHistorico})[id]();
 }
 
+/* ---------- Diálogo, edición de jugadores y alineación de vuelta ---------- */
+function abrirDlg(html) { $('dlgBody').innerHTML = html; $('dlg').classList.add('open'); }
+function cerrarDlg() { $('dlg').classList.remove('open'); }
+
+/* El histórico guarda a cada jugador por su nombre y, desde ahora, el dorsal que llevaba en cada partido. */
+function renombrar(a, b) {
+  const mv = o => { if (o && a in o) { o[b] = o[a]; delete o[a]; } };
+  appState.partidos.forEach(p => { mv(p.periodos); mv(p.puntos); mv(p.perArr); mv(p.dorsales); });
+  const pr = appState.propuestaActual;
+  if (pr) { pr.alineacion = pr.alineacion.map(l => l.map(n => n === a ? b : n)); mv(pr.conteo); }
+  appState.jugadores.find(j => j.nombre === a).nombre = b;
+}
+
+function editarJugador(i) {
+  const j = appState.jugadores[i];
+  abrirDlg(`<h3>Editar jugador/a</h3>
+    <label for="edNombre"><b>Nombre</b></label><input id="edNombre" value="${esc(j.nombre)}">
+    <label for="edDorsal"><b>Dorsal</b></label><input id="edDorsal" type="number" min="0" value="${esc(j.dorsal)}">
+    <p class="muted">El histórico y las estadísticas se conservan. Cada partido guardado recuerda el dorsal con el que se jugó. Si vas a subir un acta con el dorsal nuevo, cámbialo antes.</p>
+    <div class="row"><button class="blue" onclick="cerrarDlg()">Cancelar</button><button class="main" onclick="guardarJugador(${i})">Guardar</button></div>`);
+}
+
+function guardarJugador(i) {
+  const j = appState.jugadores[i], nombre = $('edNombre').value.trim().toUpperCase(), dorsal = parseInt($('edDorsal').value, 10);
+  if (!nombre || isNaN(dorsal)) { alert('Escribe el nombre y el dorsal.'); return; }
+  if (appState.jugadores.some((x, k) => k !== i && x.dorsal === dorsal)) { alert('Ya hay otro jugador con el dorsal ' + dorsal + '.'); return; }
+  if (appState.jugadores.some((x, k) => k !== i && x.nombre === nombre)) { alert('Ya hay otro jugador con ese nombre.'); return; }
+  const viejo = j.nombre;
+  appState.partidos.forEach(p => { p.dorsales = p.dorsales || {}; if (p.dorsales[viejo] === undefined && (p.periodos || {})[viejo] !== undefined) p.dorsales[viejo] = j.dorsal; });
+  if (nombre !== viejo) renombrar(viejo, nombre);
+  j.dorsal = dorsal;
+  saveState(); cerrarDlg(); renderPlantilla();
+}
+
+function abrirVuelta(i) {
+  const p = appState.partidos[i], modo = MODOS[appState.modo] ? appState.modo : 'eq';
+  abrirDlg(`<h3>Alineación de vuelta</h3>
+    <p class="muted">vs ${esc(p.rivalNombre || p.rival)} · Ida: ${esc(p.resultado)}</p>
+    <label for="vModo"><b>Modo de reparto</b></label>
+    <select id="vModo" onchange="$('vDesc').textContent=DESC_MODO[this.value]">${Object.entries(MODOS).map(([k, n]) => `<option value="${k}"${k === modo ? ' selected' : ''}>${n}</option>`).join('')}</select>
+    <p class="muted" id="vDesc" style="margin-top:-6px">${DESC_MODO[modo]}</p>
+    <label><b>Jugadores que cuentan para esta propuesta</b></label>
+    ${appState.jugadores.map((j, k) => `<label class="opt"><input type="checkbox" class="chk vJug" data-k="${k}" ${j.disponible ? 'checked' : ''} onchange="contarVuelta()"><span><b>#${esc(j.dorsal)}</b> ${esc(j.nombre)}</span></label>`).join('') || '<p class="muted">No hay jugadores en la plantilla.</p>'}
+    <p class="muted">¿Falta alguien? Añádelo antes en la pestaña Plantilla.</p>
+    <p class="muted" id="vCuenta"></p>
+    <div class="row"><button class="blue" onclick="cerrarDlg()">Cancelar</button><button class="main" onclick="lanzarVuelta(${i})">Generar</button></div>`);
+  contarVuelta();
+}
+
+function contarVuelta() {
+  const n = document.querySelectorAll('.vJug:checked').length;
+  $('vCuenta').textContent = n + ' jugadores seleccionados' + (n < 5 ? ' (mínimo 5)' : n < 7 ? ' · con 6 o menos la propuesta no puede cumplir todas las reglas de descanso' : '');
+}
+
+/* Los jugadores marcados quedan como «disponibles» y el modo elegido pasa a ser el modo actual. */
+function lanzarVuelta(i) {
+  const cks = [...document.querySelectorAll('.vJug')];
+  if (cks.filter(c => c.checked).length < 5) { alert('Hace falta un mínimo de 5 jugadores.'); return; }
+  cks.forEach(c => { appState.jugadores[+c.dataset.k].disponible = c.checked; });
+  appState.modo = $('vModo').value; saveState(); cerrarDlg(); generarVuelta(i);
+}
+
 /* ---------- Plantilla ---------- */
 function partidosJugados(j) { return appState.partidos.filter(p => (p.periodos || {})[j.nombre] > 0).length; }
 
@@ -608,7 +675,7 @@ function renderPlantilla() {
       <td><b>#${esc(j.dorsal)}</b></td><td class="l">${esc(j.nombre)}</td>
       <td>${pj}</td><td>${j.periodosTotales || 0}</td><td>${j.puntosTotales || 0}</td>
       <td>${j.periodosTotales ? (j.puntosTotales / j.periodosTotales).toFixed(2) : '–'}</td>
-      <td><button class="danger" style="width:auto;padding:4px 8px;margin:0" aria-label="Eliminar ${esc(j.nombre)}" onclick="eliminarJugador(${i})">X</button></td></tr>`;
+      <td style="white-space:nowrap"><button class="blue" style="width:auto;padding:4px 10px;margin:0 6px 0 0;display:inline-flex" aria-label="Editar ${esc(j.nombre)}" onclick="editarJugador(${i})">Editar</button><button class="danger" style="width:auto;padding:4px 8px;margin:0;display:inline-flex" aria-label="Eliminar ${esc(j.nombre)}" onclick="eliminarJugador(${i})">X</button></td></tr>`;
   }).join('');
 }
 
@@ -961,6 +1028,7 @@ function guardarPartidoEnHistorico() {
   appState.partidos.push({
     id: Date.now(), rival: `${rival} (${$('selectCondicion').value})`, fecha: $('fechaPartido').value.trim() || new Date().toLocaleDateString('es-ES'),
     pf, pr, resultado: `${pf} - ${pr}`, notas: $('notasRival').value, periodos, puntos, perArr,
+    dorsales: Object.fromEntries(appState.jugadores.map(j => [j.nombre, j.dorsal])),
     rivalNombre: rival, par: actaExtra ? actaExtra.par : null, rivalJug: actaExtra ? actaExtra.rivalJug : []
   });
   appState.jugadores.forEach(j => { j.periodosTotales = (j.periodosTotales || 0) + periodos[j.nombre]; j.puntosTotales = (j.puntosTotales || 0) + puntos[j.nombre]; });
@@ -980,7 +1048,7 @@ function renderHistorico() {
     const [a, b] = p.pf !== undefined ? [p.pf, p.pr] : p.resultado.split('-').map(Number);
     const [txt, col] = a > b ? ['Victoria', 'var(--ok)'] : a < b ? ['Derrota', 'var(--bad)'] : ['Empate', 'var(--text-muted)'];
     const filas = appState.jugadores.filter(j => (p.periodos || {})[j.nombre] !== undefined)
-      .map(j => `<tr><td class="l">#${esc(j.dorsal)} ${esc(j.nombre)}</td><td>${p.periodos[j.nombre]}</td><td>${(p.puntos || {})[j.nombre] || 0}</td></tr>`).join('');
+      .map(j => `<tr><td class="l">#${esc((p.dorsales || {})[j.nombre] ?? j.dorsal)} ${esc(j.nombre)}</td><td>${p.periodos[j.nombre]}</td><td>${(p.puntos || {})[j.nombre] || 0}</td></tr>`).join('');
     const par = p.par ? `<p class="muted">Parciales: ${p.par.f.map((f, k) => f + '-' + p.par.c[k]).join(' · ')}</p>` : '';
     const rj = (p.rivalJug || []).filter(j => j.pts > 0).sort((x, y) => y.pts - x.pts);
     const riv = rj.length ? `<details><summary>Jugadores del rival</summary><div class="wrap"><table><thead><tr><th>#</th><th>Jugador</th><th>Periodos</th><th>Pts</th></tr></thead><tbody>${(p.rivalJug || []).map(j => `<tr><td>${esc(j.dorsal)}</td><td class="l">${esc(j.nombre)}</td><td>${j.periodos.length}</td><td>${j.pts}</td></tr>`).join('')}</tbody></table></div></details>` : '';
@@ -990,7 +1058,7 @@ function renderHistorico() {
       ${p.notas ? `<p class="muted" style="color:var(--text)">${esc(p.notas)}</p>` : ''}
       <details><summary>Ver detalle individual</summary><div class="wrap"><table><thead><tr><th>Jugador</th><th>Periodos</th><th>Puntos</th></tr></thead><tbody>${filas}</tbody></table></div></details>${riv}
       <div style="margin-top:12px; display:flex; gap:8px">
-        <button class="blue" style="margin:0" onclick="generarVuelta(${i})">Alineación de vuelta</button>
+        <button class="blue" style="margin:0" onclick="abrirVuelta(${i})">Alineación de vuelta</button>
         <button class="danger" style="width:100px; margin:0" onclick="borrarPartido(${i})">Borrar</button>
       </div></div>`;
   }).join('');
