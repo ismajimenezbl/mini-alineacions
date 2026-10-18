@@ -419,6 +419,8 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
 
     <div id="contenedorPeriodos" class="grid"></div>
     <div id="resumenPropuesta" class="muted" style="margin-top:14px"></div>
+    <div id="avisosEdicion" class="msg" style="display:none; margin-top:12px"></div>
+    <p id="ayudaEdicion" class="muted" style="display:none; margin-top:10px">✏️ Puedes cambiar los jugadores de cualquier periodo con el botón «Editar».</p>
     <button class="blue" id="btnRegenerar" onclick="generarAlineacionNuevoPartido(true)" style="display:none; margin-top:12px">Generar alternativa</button>
   </div>
 </div>
@@ -687,15 +689,19 @@ const PASOS = [
    txt: '<p>Esta app te ayuda a <b>preparar los quintetos de los 8 periodos</b>, leer las <b>actas de la FCBQ</b> y llevar las <b>estadísticas</b> de tu equipo.</p><p>En un minuto te cuento cómo funciona.</p>'},
   {t: 'Empieza con un acta', rec: 1,
    art: '<span class="chip on">📄 acta.pdf</span><span class="flecha">→</span><div class="lista"><div><b>#8</b><i></i>6 per.</div><div><b>#9</b><i></i>5 per.</div><div><b>#13</b><i></i>4 per.</div></div>',
-   txt: '<p>👉 <b>Lo más rápido para empezar:</b> en «Registro del partido» sube el PDF del acta de la FCBQ.</p><p>La app crea tu plantilla con los jugadores del acta, carga los <b>periodos y puntos</b> de cada uno y guarda también los datos del rival.</p>'},
-  {t: 'Plantilla y equipos', art: '<span class="chip on">Competitivo</span><span class="chip">Equilibrio</span><span class="chip">Equitativo</span>',
-   txt: '<p>En <b>Plantilla</b> puedes tener varios equipos (club y categoría), marcar quién está <b>disponible</b> (entre 7 y 12 por partido), editar dorsales y elegir cómo repartir los periodos:</p><p><b>Competitivo</b> prima a los mejores, <b>Equilibrio</b> da a todos 4-6 periodos y <b>Equitativo</b> los mismos a todos.</p>'},
+   txt: '<p>👉 <b>Lo más rápido para empezar:</b> en «Registro del partido» sube el PDF del acta de la FCBQ.</p><p>La app carga los <b>periodos y puntos</b> de cada jugador y los datos del rival. Si en el acta hay jugadores que aún no tienes, te propone <b>añadirlos</b>; y si alguien ha cambiado de dorsal, lo detecta.</p>'},
+  {t: 'Equipos y plantilla', art: '<span class="chip on">Mini Mi Club</span><span class="chip">Infantil</span><span class="chip">+ Nuevo equipo</span>',
+   txt: '<p>En <b>Plantilla</b> puedes crear <b>varios equipos</b> (club y categoría), cada uno con sus jugadores y estadísticas.</p><p>Marca quién está <b>disponible</b>: la normativa exige <b>entre 7 y 12 jugadores</b> por partido. Con «Editar» cambias el nombre o el dorsal de un jugador <b>sin perder el histórico</b>.</p>'},
+  {t: 'Cómo se reparten los periodos', art: '<span class="chip on">Competitivo</span><span class="chip">Equilibrio</span><span class="chip">Equitativo</span><span class="chip">Máx. 3 seguidos</span>',
+   txt: '<p>Elige el modo: <b>Competitivo</b> prima a los mejores, <b>Equilibrio</b> da a todos 4-6 periodos y <b>Equitativo</b> los mismos a todos.</p><p>Siempre se cumple la <b>normativa</b> (mínimo 2 periodos antes del 6º y máximo 5 en los 6 primeros). Además puedes fijar <b>cuántos periodos seguidos</b> puede jugar alguien (por defecto 3) o <b>quitar el límite</b>.</p>'},
   {t: 'Propuesta de quintetos', art: '<div class="per"><span class="on">P1</span><span>P2</span><span>P3</span><span>P4</span><span>P5</span><span>P6</span><span>P7</span><span>P8</span></div>',
-   txt: '<p>Genera los 8 quintetos cumpliendo la <b>normativa</b> (mínimo 2 periodos antes del 6º) y tu <b>límite de periodos seguidos</b> (por defecto 3; puedes cambiarlo o quitarlo en Plantilla).</p><p>Durante el partido, pulsa <b>Siguiente ▶</b> para dar las salidas a la mesa y a los jugadores.</p>'},
+   txt: '<p>Genera los 8 quintetos con un clic. Durante el partido, pulsa <b>Siguiente ▶</b> para dar las salidas a la mesa y a los jugadores: ves quién sale, quién descansa y el siguiente quinteto.</p>'},
+  {t: 'Ajústala a tu criterio', art: '<span class="chip">#8 ⇄ #13</span><span class="chip on">✏️ Editar</span>',
+   txt: '<p>En cualquier periodo toca <b>✏️ Editar</b> para cambiar a un jugador por otro que descansa.</p><p>Si el cambio incumple la normativa o tu límite de seguidos, la app te <b>avisa</b>, pero la decisión es tuya. Puedes <b>volver a lo propuesto</b> cuando quieras.</p>'},
   {t: 'Histórico y partido de vuelta', art: '<span class="chip">32 - 25</span><span class="flecha">→</span><span class="chip on">🔁 Alineación de vuelta</span>',
    txt: '<p>Cada partido guardado muestra sus <b>parciales</b> y los jugadores del rival.</p><p>Con <b>«Alineación de vuelta»</b> eliges el modo y quién juega, y la propuesta tiene en cuenta cómo jugó el rival en la ida.</p>'},
   {t: 'Tus datos, a salvo', art: '<div class="big">🔒</div><span class="flecha">+</span><div class="big">💾</div>',
-   txt: '<p>Todo se guarda <b>solo en este dispositivo</b>; nada se envía a ningún servidor.</p><p>Haz una <b>copia de seguridad</b> de vez en cuando desde «Histórico» (puedes cifrarla con contraseña). Si borras los datos del navegador sin copia, se pierden.</p>'},
+   txt: '<p>Todo se guarda <b>solo en este dispositivo</b>; nada se envía a ningún servidor.</p><p>Haz <b>copias de seguridad</b> desde «Histórico» (puedes cifrarlas con contraseña) y, si quieres, activa un <b>PIN</b>. Puedes <b>instalar la app en el móvil</b> desde el menú del navegador. Si borras los datos del navegador sin copia, se pierden.</p>'},
   {t: '¡Listo para empezar!', rec: 1, art: '<div class="big">📄</div><span class="flecha">→</span><div class="big">📋</div>',
    txt: '<p>Te recomiendo <b>empezar subiendo un acta de la FCBQ</b> de un partido ya jugado: en unos segundos tendrás plantilla, estadísticas y datos del rival.</p><p>Puedes volver a ver esta guía desde el menú, en «Cómo funciona».</p>'}
 ];
@@ -974,8 +980,10 @@ function crearPropuesta(rival, pesos, nota, rivalAlin) {
   const disp = appState.jugadores.filter(j => j.disponible);
   const motivo = reglaConvocatoria(disp.length);
   if (motivo) { alert(motivo + ' Ajusta quién está disponible en la pestaña Plantilla.'); return; }
+  const prev = appState.propuestaActual;
+  if (prev && prev.editados && prev.editados.some(Boolean) && !confirm('Tienes cambios manuales en la propuesta actual y se perderán. ¿Continuar?')) return;
   const r = optimizar(disp, pesos);
-  appState.propuestaActual = {rival, alineacion: r.al, conteo: r.cnt, pesos, nota, aviso: r.aviso, info: r.info || '', rivalAlin: rivalAlin || null, modo: appState.modo || 'eq', seg: seguidos(), actual: 0};
+  appState.propuestaActual = {rival, alineacion: r.al, conteo: r.cnt, pesos, nota, aviso: r.aviso, info: r.info || '', rivalAlin: rivalAlin || null, modo: appState.modo || 'eq', seg: seguidos(), orig: r.al.map(l => [...l]), editados: Array(8).fill(false), actual: 0};
   saveState(); $('inputRivalGuardar').value = rival;
   navigateTo('tab-propuesta', 'Propuesta de Alineación');
 }
@@ -1008,6 +1016,65 @@ function generarVuelta(i) {
   crearPropuesta(p.rivalNombre || p.rival, f1.map((x, k) => 0.5 * x + 0.5 * f2[k]), nota, rivalAlin);
 }
 
+/* ---------- Editar la propuesta a mano ---------- */
+function recontar(pr) {
+  const c = {};
+  appState.jugadores.filter(j => j.disponible).forEach(j => { c[j.nombre] = 0; });
+  pr.alineacion.flat().forEach(n => { c[n] = (c[n] || 0) + 1; });
+  pr.conteo = c;
+}
+
+/* Revisa la propuesta (con los cambios hechos) frente a la normativa y al límite de periodos seguidos. Solo avisa: la decisión es del entrenador. */
+function revisarPropuesta(pr) {
+  const L = pr.seg === undefined ? 3 : pr.seg, av = [];
+  const nom = n => { const j = appState.jugadores.find(x => x.nombre === n); return (j ? '#' + j.dorsal + ' ' : '') + n.split(' ')[0]; };
+  Object.keys(pr.conteo).forEach(n => {
+    let c5 = 0, c6 = 0, run = 0, max = 0;
+    pr.alineacion.forEach((l, p) => { if (l.includes(n)) { run++; max = Math.max(max, run); if (p <= 4) c5++; if (p <= 5) c6++; } else run = 0; });
+    if (c5 < 2) av.push(`${nom(n)} juega ${c5} periodo${c5 === 1 ? '' : 's'} antes del 6º (mínimo 2)`);
+    if (c6 > 5) av.push(`${nom(n)} juega ${c6} de los 6 primeros periodos (máximo 5)`);
+    if (L && max > L) av.push(`${nom(n)} juega ${max} periodos seguidos (tu límite es ${L})`);
+  });
+  pr.alineacion.forEach((l, p) => { if (new Set(l).size !== 5) av.push(`El periodo ${p + 1} no tiene 5 jugadores distintos`); });
+  return av;
+}
+function pintarAvisosEdicion(pr) {
+  const el = $('avisosEdicion');
+  if (!pr.editados || !pr.editados.some(Boolean)) { el.style.display = 'none'; return; }
+  const av = revisarPropuesta(pr);
+  el.style.display = 'block';
+  el.innerHTML = av.length ? `⚠️ <b>Con tus cambios:</b><br>${av.map(esc).join('<br>')}` : '✅ Con tus cambios se siguen cumpliendo la normativa y tu límite de periodos seguidos.';
+}
+
+function editarPeriodo(i) {
+  const pr = appState.propuestaActual; if (!pr) return;
+  const en = new Set(pr.alineacion[i]), lista = appState.jugadores.filter(j => j.disponible || en.has(j.nombre));
+  abrirDlg(`<h3>Periodo ${i + 1}: cambiar jugadores</h3>
+    <p class="muted">Deja marcados exactamente 5 jugadores; los demás descansan. Si el cambio incumple la normativa o tu límite de seguidos, te lo aviso, pero puedes guardarlo.</p>
+    ${lista.map(j => `<label class="opt"><input type="checkbox" class="chk edJ" data-n="${esc(j.nombre)}" ${en.has(j.nombre) ? 'checked' : ''} onchange="contarEdicion()"><span><b>#${esc(j.dorsal)}</b> ${esc(j.nombre)} <small class="muted">· ${pr.conteo[j.nombre] || 0} periodos</small></span></label>`).join('')}
+    <p id="edCuenta" class="muted"></p>
+    <div class="row"><button class="blue" onclick="cerrarDlg()">Cancelar</button>${pr.editados && pr.editados[i] ? `<button class="blue" onclick="restaurarPeriodo(${i})">Volver a lo propuesto</button>` : ''}<button class="main" id="edGuardar" onclick="guardarPeriodo(${i})">Guardar</button></div>`);
+  contarEdicion();
+}
+function contarEdicion() {
+  const n = [...document.querySelectorAll('.edJ')].filter(c => c.checked).length;
+  $('edCuenta').textContent = n + ' de 5 jugadores en pista' + (n === 5 ? '' : n < 5 ? ` · faltan ${5 - n}` : ` · sobran ${n - 5}`);
+  $('edCuenta').style.color = n === 5 ? 'var(--ok)' : 'var(--bad)';
+  $('edGuardar').disabled = n !== 5;
+}
+function guardarPeriodo(i) {
+  const pr = appState.propuestaActual, nombres = [...document.querySelectorAll('.edJ')].filter(c => c.checked).map(c => c.dataset.n);
+  if (nombres.length !== 5) { alert('Tienen que ser exactamente 5 jugadores.'); return; }
+  pr.alineacion[i] = nombres;
+  pr.editados[i] = !(pr.orig && pr.orig[i] && pr.orig[i].length === 5 && pr.orig[i].every(n => nombres.includes(n)));
+  recontar(pr); saveState(); cerrarDlg(); renderPropuesta();
+}
+function restaurarPeriodo(i) {
+  const pr = appState.propuestaActual;
+  pr.alineacion[i] = [...pr.orig[i]]; pr.editados[i] = false;
+  recontar(pr); saveState(); cerrarDlg(); renderPropuesta();
+}
+
 function movPeriodo(d) { const pr = appState.propuestaActual; if (!pr) return; pr.actual = Math.max(0, Math.min(7, (pr.actual || 0) + d)); saveState(); renderPropuesta(); }
 function irPeriodo(i) { appState.propuestaActual.actual = i; saveState(); renderPropuesta(); }
 
@@ -1017,7 +1084,7 @@ function renderPropuesta() {
   $('modoPartido').style.display = pr ? 'block' : 'none';
   if (!pr) {
     $('tituloRivalPropuesta').textContent = 'Rival: sin definir'; $('notaPropuesta').textContent = '';$('contenedorPeriodos').innerHTML = '<p class="muted">Genera una propuesta desde la pestaña Plantilla o desde un partido del Histórico.</p>';
-    $('resumenPropuesta').textContent = ''; return;
+    $('resumenPropuesta').textContent = ''; $('avisosEdicion').style.display = 'none'; $('ayudaEdicion').style.display = 'none'; return;
   }
   const dors = n => (appState.jugadores.find(j => j.nombre === n) || {}).dorsal;
   const tag = (n, big) => `<span class="tag"${big ? ' style="font-size:1.1em;padding:8px 12px"' : ''}>#${esc(dors(n) ?? '?')} ${esc(n.split(' ')[0])}</span>`;
@@ -1025,13 +1092,15 @@ function renderPropuesta() {
   $('tituloRivalPropuesta').textContent = 'Rival: ' + pr.rival;
   $('tituloRivalPropuesta').textContent = 'Rival: ' + pr.rival + ' · Modo ' + (MODOS[pr.modo] || 'Equilibrio') + ' · ' + ((pr.seg === undefined ? 3 : pr.seg) ? 'máx. ' + (pr.seg === undefined ? 3 : pr.seg) + ' seguidos' : 'sin límite de seguidos');
   $('notaPropuesta').textContent = [pr.nota, pr.info ? 'ℹ️ ' + pr.info : '', pr.aviso ? '⚠️ ' + pr.aviso : ''].filter(Boolean).join(' ');
-  $('periodoActual').innerHTML = `<h3 style="margin:0 0 8px">Periodo ${a + 1} de 8</h3><div>${sel.map(n => tag(n, 1)).join('')}</div>` +
+  $('periodoActual').innerHTML = `<h3 style="margin:0 0 8px">Periodo ${a + 1} de 8${pr.editados && pr.editados[a] ? ' ✏️ editado' : ''}</h3><div>${sel.map(n => tag(n, 1)).join('')}</div>` +
     (a < 7 ? `<p class="muted" style="margin-top:8px">Siguiente: ${pr.alineacion[a + 1].map(n => tag(n)).join('')}</p>` : '') +
     (pr.rivalAlin ? `<p class="muted">Rival en la ida: ${pr.rivalAlin[a].map(d => '#' + d).join(' ')}</p>` : '') +
-    `<p class="muted">Descansan: ${esc(todos.filter(n => !sel.includes(n)).map(n => n.split(' ')[0]).join(', ') || '–')}</p>`;
+    `<p class="muted">Descansan: ${esc(todos.filter(n => !sel.includes(n)).map(n => n.split(' ')[0]).join(', ') || '–')}</p>` +
+    `<button class="blue" style="margin-top:6px" onclick="editarPeriodo(${a})">✏️ Cambiar jugadores de este periodo</button>`;
   $('contenedorPeriodos').innerHTML = pr.alineacion.map((p, i) =>
-    `<div class="box" style="cursor:pointer;${i === a ? 'border:2px solid var(--primary); background:var(--card)' : ''}" onclick="irPeriodo(${i})"><h4>Periodo ${i + 1}</h4>${p.map(n => tag(n)).join('')}${pr.rivalAlin ? `<div class="muted">Rival: ${pr.rivalAlin[i].map(d => '#' + d).join(' ')}</div>` : ''}</div>`).join('');
+    `<div class="box" style="cursor:pointer;${i === a ? 'border:2px solid var(--primary); background:var(--card)' : ''}" onclick="irPeriodo(${i})"><h4>Periodo ${i + 1}${pr.editados && pr.editados[i] ? ' ✏️' : ''}</h4>${p.map(n => tag(n)).join('')}${pr.rivalAlin ? `<div class="muted">Rival: ${pr.rivalAlin[i].map(d => '#' + d).join(' ')}</div>` : ''}<button class="blue" style="width:auto;padding:4px 10px;margin:8px 0 0" onclick="event.stopPropagation();editarPeriodo(${i})">✏️ Editar</button></div>`).join('');
   $('resumenPropuesta').textContent = 'Periodos por jugador: ' + Object.entries(pr.conteo).map(([n, c]) => n.split(' ')[0] + ' ' + c).join(' · ');
+  pintarAvisosEdicion(pr); $('ayudaEdicion').style.display = 'block';
 }
 
 /* ---------- Registro del partido ---------- */
