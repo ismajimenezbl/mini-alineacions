@@ -538,7 +538,7 @@ function aDb(d) {
 }
 function activar(d) {
   db = aDb(d);
-  db.equipos.forEach(e => { e.modo = e.modo || 'eq'; e.partidos = e.partidos || []; e.jugadores = e.jugadores || []; e.jugadores.forEach(j => { if (j.disponible === undefined) j.disponible = true; }); });
+  db.equipos.forEach(e => { e.modo = e.modo || 'eq'; e.partidos = e.partidos || []; e.jugadores = e.jugadores || []; e.jugadores.forEach(j => { if (j.disponible === undefined) j.disponible = true; }); normalizarPropuesta(e.propuestaActual); });
   appState = db.equipos.find(e => e.id === db.activo) || db.equipos[0]; db.activo = appState.id;
 }
 
@@ -695,7 +695,7 @@ const PASOS = [
   {t: 'Cómo se reparten los periodos', art: '<span class="chip on">Competitivo</span><span class="chip">Equilibrio</span><span class="chip">Equitativo</span><span class="chip">Máx. 3 seguidos</span>',
    txt: '<p>Elige el modo: <b>Competitivo</b> prima a los mejores, <b>Equilibrio</b> da a todos 4-6 periodos y <b>Equitativo</b> los mismos a todos.</p><p>Siempre se cumple la <b>normativa</b> (mínimo 2 periodos antes del 6º y máximo 5 en los 6 primeros). Además puedes fijar <b>cuántos periodos seguidos</b> puede jugar alguien (por defecto 3) o <b>quitar el límite</b>.</p>'},
   {t: 'Propuesta de quintetos', art: '<div class="per"><span class="on">P1</span><span>P2</span><span>P3</span><span>P4</span><span>P5</span><span>P6</span><span>P7</span><span>P8</span></div>',
-   txt: '<p>Genera los 8 quintetos con un clic. Durante el partido, pulsa <b>Siguiente ▶</b> para dar las salidas a la mesa y a los jugadores: ves quién sale, quién descansa y el siguiente quinteto.</p>'},
+   txt: '<p>Genera los 8 quintetos con un clic. La propuesta <b>mezcla jugadores fuertes y flojos</b> para que ningún periodo quede muy desequilibrado. Durante el partido, pulsa <b>Siguiente ▶</b> para dar las salidas a la mesa y a los jugadores: ves quién sale, quién descansa y el siguiente quinteto.</p>'},
   {t: 'Ajústala a tu criterio', art: '<span class="chip">#8 ⇄ #13</span><span class="chip on">✏️ Editar</span>',
    txt: '<p>En cualquier periodo toca <b>✏️ Editar</b> para cambiar a un jugador por otro que descansa.</p><p>Si el cambio incumple la normativa o tu límite de seguidos, la app te <b>avisa</b>, pero la decisión es tuya. Puedes <b>volver a lo propuesto</b> cuando quieras.</p>'},
   {t: 'Histórico y partido de vuelta', art: '<span class="chip">32 - 25</span><span class="flecha">→</span><span class="chip on">🔁 Alineación de vuelta</span>',
@@ -914,11 +914,64 @@ const DESC_MODO = {
 };
 function cambiarModo(v) { appState.modo = v; saveState(); $('descModo').textContent = DESC_MODO[v]; }
 
+/* ¿Cumple la propuesta las reglas del modo? Devuelve los periodos de cada jugador, o null si incumple algo. */
+function cumple(al, disp, cfg, m6) {
+  const c = {}, c5 = {}, c6 = {}, run = {};
+  disp.forEach(j => { c[j.nombre] = c5[j.nombre] = c6[j.nombre] = run[j.nombre] = 0; });
+  for (let p = 0; p < 8; p++) {
+    const l = al[p];
+    if (!cfg.libre && new Set(l).size !== 5) return null;
+    for (const j of disp) {
+      const n = j.nombre;
+      if (l.includes(n)) { c[n]++; run[n]++; if (p <= 4) c5[n]++; if (p <= 5) c6[n]++; if (!cfg.libre && cfg.rc && run[n] > cfg.rc) return null; } else run[n] = 0;
+    }
+  }
+  if (!cfg.libre) for (const j of disp) {
+    const n = j.nombre;
+    if (c5[n] < 2 || c6[n] > 5 || c6[n] < m6 || (cfg.lo !== undefined && c[n] < cfg.lo) || (cfg.hi !== undefined && c[n] > cfg.hi)) return null;
+  }
+  return c;
+}
+
+/* Puntuación de una propuesta: pone a los mejores en los periodos que más pesan, pero cada periodo debe quedar
+   proporcional a su peso (que no haya periodos con todos los flojos juntos): se penaliza alejarse de la fuerza objetivo
+   de cada periodo y, con más dureza, quedar por debajo del 85 % de ella. */
+function puntuar(al, v, pesos) {
+  const L = al.map(l => l.reduce((s, n) => s + v[n], 0)), m = L.reduce((a, b) => a + b, 0) / 8, wm = pesos.reduce((a, b) => a + b, 0) / 8;
+  let J = 0;
+  L.forEach((x, p) => { const t = m * pesos[p] / wm; J += pesos[p] * x - (x - t) * (x - t) - 5 * Math.max(0, 0.85 * t - x) ** 2; });
+  return J;
+}
+
+/* Mejora una propuesta válida con cambios pequeños (intercambiar dos jugadores entre periodos, o sustituir uno por quien descansa)
+   y solo acepta los que siguen cumpliendo todas las reglas y mejoran la puntuación. */
+function mejorar(al, ctx, limite) {
+  const {disp, v, pesos, cfg, m6} = ctx;
+  for (let it = 0; it < 60 && Date.now() < limite; it++) {
+    const cur = puntuar(al, v, pesos);
+    const prueba = cand => (cumple(cand, disp, cfg, m6) && puntuar(cand, v, pesos) > cur + 1e-9) ? cand : null;
+    let nuevo = null;
+    for (let a = 0; a < 8 && !nuevo; a++) for (let b = a + 1; b < 8 && !nuevo; b++) for (const x of al[a]) { if (nuevo) break; for (const y of al[b]) {
+      if (al[b].includes(x) || al[a].includes(y)) continue;
+      const cand = al.slice(); cand[a] = al[a].map(n => n === x ? y : n); cand[b] = al[b].map(n => n === y ? x : n);
+      if ((nuevo = prueba(cand))) break;
+    } }
+    for (let a = 0; a < 8 && !nuevo; a++) for (const x of al[a]) { if (nuevo) break; for (const j of disp) {
+      if (al[a].includes(j.nombre)) continue;
+      const cand = al.slice(); cand[a] = al[a].map(n => n === x ? j.nombre : n);
+      if ((nuevo = prueba(cand))) break;
+    } }
+    if (!nuevo) break;
+    al = nuevo;
+  }
+  return al;
+}
+
 function buscar(disp, pesos, v, cfg, its) {
-  let best = null, bestJ = -1e9;
   const m6 = Math.max(0, 30 - 5 * (disp.length - 1));   // mínimo forzoso en los 6 primeros si el resto ya llega al máximo
+  const validas = [];
   for (let it = 0; it < (its || 2500); it++) {
-    const c = {}, c5 = {}, c6 = {}, rac = {}, al = [], L = []; let ok = true, J = 0;
+    const c = {}, c5 = {}, c6 = {}, rac = {}, al = []; let ok = true;
     disp.forEach(j => { const n = j.nombre; c[n] = c5[n] = c6[n] = rac[n] = 0; });
     for (let p = 0; p < 8 && ok; p++) {
       const sc = disp.map(j => {
@@ -940,16 +993,20 @@ function buscar(disp, pesos, v, cfg, its) {
       const names = sel.map(x => x[1]);
       disp.forEach(j => { const n = j.nombre;
         if (names.includes(n)) { c[n]++; rac[n]++; if (p <= 4) c5[n]++; if (p <= 5) c6[n]++; } else rac[n] = 0; });
-      const Lp = names.reduce((s, n) => s + v[n], 0); L.push(Lp); J += pesos[p] * Lp; al.push(names);
+      al.push(names);
     }
-    if (!ok) continue;
-    if (!cfg.libre && !disp.every(j => c5[j.nombre] >= 2 && c6[j.nombre] <= 5 && c6[j.nombre] >= m6 &&
-      (cfg.lo === undefined || c[j.nombre] >= cfg.lo) && (cfg.hi === undefined || c[j.nombre] <= cfg.hi))) continue;
-    const m = L.reduce((a, b) => a + b, 0) / 8;
-    J -= 0.3 * L.reduce((s, x) => s + (x - m) * (x - m), 0);   // evita periodos con los cinco más flojos juntos
-    if (J > bestJ) { bestJ = J; best = {al, cnt: c}; }
+    if (!ok || !cumple(al, disp, cfg, m6)) continue;
+    validas.push({al, J: puntuar(al, v, pesos)});
   }
-  return best;
+  if (!validas.length) return null;
+  validas.sort((a, b) => b.J - a.J);
+  const ctx = {disp, v, pesos, cfg, m6}, limite = Date.now() + 700;
+  let best = null, bestJ = -1e9;
+  validas.slice(0, cfg.libre ? 1 : 6).forEach(x => {
+    const al = cfg.libre ? x.al : mejorar(x.al, ctx, limite), J = puntuar(al, v, pesos);
+    if (J > bestJ) { bestJ = J; best = al; }
+  });
+  return {al: best, cnt: cumple(best, disp, cfg, m6)};
 }
 
 function optimizar(disp, pesos) {
@@ -1017,6 +1074,13 @@ function generarVuelta(i) {
 }
 
 /* ---------- Editar la propuesta a mano ---------- */
+/* Las propuestas guardadas por versiones anteriores no tienen los campos de edición: se completan con lo que hay. */
+function normalizarPropuesta(pr) {
+  if (!pr || !Array.isArray(pr.alineacion)) return;
+  if (!Array.isArray(pr.orig) || pr.orig.length !== 8) pr.orig = pr.alineacion.map(l => [...l]);
+  if (!Array.isArray(pr.editados) || pr.editados.length !== 8) pr.editados = Array(8).fill(false);
+  if (!pr.conteo) pr.conteo = {};
+}
 function recontar(pr) {
   const c = {};
   appState.jugadores.filter(j => j.disponible).forEach(j => { c[j.nombre] = 0; });
@@ -1048,6 +1112,7 @@ function pintarAvisosEdicion(pr) {
 
 function editarPeriodo(i) {
   const pr = appState.propuestaActual; if (!pr) return;
+  normalizarPropuesta(pr);
   const en = new Set(pr.alineacion[i]), lista = appState.jugadores.filter(j => j.disponible || en.has(j.nombre));
   abrirDlg(`<h3>Periodo ${i + 1}: cambiar jugadores</h3>
     <p class="muted">Deja marcados exactamente 5 jugadores; los demás descansan. Si el cambio incumple la normativa o tu límite de seguidos, te lo aviso, pero puedes guardarlo.</p>
@@ -1063,16 +1128,21 @@ function contarEdicion() {
   $('edGuardar').disabled = n !== 5;
 }
 function guardarPeriodo(i) {
-  const pr = appState.propuestaActual, nombres = [...document.querySelectorAll('.edJ')].filter(c => c.checked).map(c => c.dataset.n);
-  if (nombres.length !== 5) { alert('Tienen que ser exactamente 5 jugadores.'); return; }
-  pr.alineacion[i] = nombres;
-  pr.editados[i] = !(pr.orig && pr.orig[i] && pr.orig[i].length === 5 && pr.orig[i].every(n => nombres.includes(n)));
-  recontar(pr); saveState(); cerrarDlg(); renderPropuesta();
+  try {
+    const pr = appState.propuestaActual; normalizarPropuesta(pr);
+    const nombres = [...document.querySelectorAll('.edJ')].filter(c => c.checked).map(c => c.dataset.n);
+    if (nombres.length !== 5) { alert('Tienen que ser exactamente 5 jugadores.'); return; }
+    pr.alineacion[i] = nombres;
+    pr.editados[i] = !(pr.orig[i] && pr.orig[i].length === 5 && pr.orig[i].every(n => nombres.includes(n)));
+    recontar(pr); saveState(); cerrarDlg(); renderPropuesta();
+  } catch (e) { console.error(e); alert('No se ha podido guardar el cambio: ' + e.message); }
 }
 function restaurarPeriodo(i) {
-  const pr = appState.propuestaActual;
-  pr.alineacion[i] = [...pr.orig[i]]; pr.editados[i] = false;
-  recontar(pr); saveState(); cerrarDlg(); renderPropuesta();
+  try {
+    const pr = appState.propuestaActual; normalizarPropuesta(pr);
+    pr.alineacion[i] = [...pr.orig[i]]; pr.editados[i] = false;
+    recontar(pr); saveState(); cerrarDlg(); renderPropuesta();
+  } catch (e) { console.error(e); alert('No se ha podido restaurar el periodo: ' + e.message); }
 }
 
 function movPeriodo(d) { const pr = appState.propuestaActual; if (!pr) return; pr.actual = Math.max(0, Math.min(7, (pr.actual || 0) + d)); saveState(); renderPropuesta(); }
