@@ -301,6 +301,12 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
 .dots { display: flex; justify-content: center; gap: 6px; margin: 10px 0 12px; }
 .dots span { width: 8px; height: 8px; border-radius: 8px; background: #d0d5dd; }
 .dots span.on { width: 22px; background: var(--primary); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
+.chipc { cursor: pointer; display: inline-block; margin: 0; }
+.chipc input { position: absolute; opacity: 0; width: 0; height: 0; }
+.chipc span { display: inline-block; padding: 7px 13px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); font-size: 0.85rem; font-weight: 600; color: var(--text); }
+.chipc input:checked + span { background: var(--primary); border-color: var(--primary); color: #fff; }
+.chipc input:focus-visible + span { outline: 2px solid var(--secondary); outline-offset: 2px; }
 .opt { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 0.9rem; color: var(--text-muted); }
 .opt .chk { flex: none; margin: 0; }
 </style>
@@ -373,6 +379,7 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
       <input id="nombreJugador" placeholder="Nombre completo">
       <input type="number" id="dorsalJugador" placeholder="Dorsal">
     </div>
+    <div id="altaCampos"></div>
     <button class="blue" onclick="agregarJugador()">Añadir a la plantilla</button>
 
     <div style="margin-top:24px; border-top:1px solid var(--line); padding-top:16px">
@@ -663,7 +670,7 @@ function borrarDatosDispositivo() {
 }
 
 async function arrancar(hadLocal) {
-  actualizarPin(); actualizarCopia();
+  actualizarPin(); actualizarCopia(); $('altaCampos').innerHTML = camposJugadorHTML('al');
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
   if (!hadLocal) {
     const d = await idbGet();
@@ -691,11 +698,11 @@ const PASOS = [
    art: '<span class="chip on">📄 acta.pdf</span><span class="flecha">→</span><div class="lista"><div><b>#8</b><i></i>6 per.</div><div><b>#9</b><i></i>5 per.</div><div><b>#13</b><i></i>4 per.</div></div>',
    txt: '<p>👉 <b>Lo más rápido para empezar:</b> en «Registro del partido» sube el PDF del acta de la FCBQ.</p><p>La app carga los <b>periodos y puntos</b> de cada jugador y los datos del rival. Si en el acta hay jugadores que aún no tienes, te propone <b>añadirlos</b>; y si alguien ha cambiado de dorsal, lo detecta.</p>'},
   {t: 'Equipos y plantilla', art: '<span class="chip on">Mini Mi Club</span><span class="chip">Infantil</span><span class="chip">+ Nuevo equipo</span>',
-   txt: '<p>En <b>Plantilla</b> puedes crear <b>varios equipos</b> (club y categoría), cada uno con sus jugadores y estadísticas.</p><p>Marca quién está <b>disponible</b>: la normativa exige <b>entre 7 y 12 jugadores</b> por partido. Con «Editar» cambias el nombre o el dorsal de un jugador <b>sin perder el histórico</b>.</p>'},
+   txt: '<p>En <b>Plantilla</b> puedes crear <b>varios equipos</b> (club y categoría), cada uno con sus jugadores y estadísticas.</p><p>Marca quién está <b>disponible</b>: la normativa exige <b>entre 7 y 12 jugadores</b> por partido. Con «Editar» cambias el nombre o el dorsal de un jugador <b>sin perder el histórico</b>, y le indicas sus <b>posiciones</b> y su <b>resistencia</b> (1 a 3 periodos seguidos que aguanta en pista).</p>'},
   {t: 'Cómo se reparten los periodos', art: '<span class="chip on">Competitivo</span><span class="chip">Equilibrio</span><span class="chip">Equitativo</span><span class="chip">Máx. 3 seguidos</span>',
    txt: '<p>Elige el modo: <b>Competitivo</b> prima a los mejores, <b>Equilibrio</b> da a todos 4-6 periodos y <b>Equitativo</b> los mismos a todos.</p><p>Siempre se cumple la <b>normativa</b> (mínimo 2 periodos antes del 6º y máximo 5 en los 6 primeros). Además puedes fijar <b>cuántos periodos seguidos</b> puede jugar alguien (por defecto 3) o <b>quitar el límite</b>.</p>'},
   {t: 'Propuesta de quintetos', art: '<div class="per"><span class="on">P1</span><span>P2</span><span>P3</span><span>P4</span><span>P5</span><span>P6</span><span>P7</span><span>P8</span></div>',
-   txt: '<p>Genera los 8 quintetos con un clic. La propuesta <b>mezcla jugadores fuertes y flojos</b> para que ningún periodo quede muy desequilibrado. Durante el partido, pulsa <b>Siguiente ▶</b> para dar las salidas a la mesa y a los jugadores: ves quién sale, quién descansa y el siguiente quinteto.</p>'},
+   txt: '<p>Genera los 8 quintetos con un clic. La propuesta <b>mezcla jugadores fuertes y flojos</b> para que ningún periodo quede muy desequilibrado, <b>respeta la resistencia</b> de cada jugador e intenta tener un <b>base y un interior</b> en pista. Durante el partido, pulsa <b>Siguiente ▶</b> para dar las salidas a la mesa y a los jugadores: ves quién sale, quién descansa y el siguiente quinteto.</p>'},
   {t: 'Ajústala a tu criterio', art: '<span class="chip">#8 ⇄ #13</span><span class="chip on">✏️ Editar</span>',
    txt: '<p>En cualquier periodo toca <b>✏️ Editar</b> para cambiar a un jugador por otro que descansa.</p><p>Si el cambio incumple la normativa o tu límite de seguidos, la app te <b>avisa</b>, pero la decisión es tuya. Puedes <b>volver a lo propuesto</b> cuando quieras.</p>'},
   {t: 'Histórico y partido de vuelta', art: '<span class="chip">32 - 25</span><span class="flecha">→</span><span class="chip on">🔁 Alineación de vuelta</span>',
@@ -747,7 +754,7 @@ function crearEquipo() {
   const nombre = $('neNombre').value.trim();
   if (!nombre) { alert('Escribe el nombre del equipo.'); return; }
   const e = nuevoEquipo(nombre);
-  if ($('neCopiar').checked) e.jugadores = appState.jugadores.map(j => ({nombre: j.nombre, dorsal: j.dorsal, periodosTotales: 0, puntosTotales: 0, disponible: true}));
+  if ($('neCopiar').checked) e.jugadores = appState.jugadores.map(j => ({nombre: j.nombre, dorsal: j.dorsal, periodosTotales: 0, puntosTotales: 0, disponible: true, posiciones: [...(j.posiciones || [])], resistencia: j.resistencia || 0}));
   db.equipos.push(e); cerrarDlg(); cambiarEquipo(e.id);
 }
 function renombrarEquipoDlg() {
@@ -785,6 +792,7 @@ function editarJugador(i) {
   abrirDlg(`<h3>Editar jugador/a</h3>
     <label for="edNombre"><b>Nombre</b></label><input id="edNombre" value="${esc(j.nombre)}">
     <label for="edDorsal"><b>Dorsal</b></label><input id="edDorsal" type="number" min="0" value="${esc(j.dorsal)}">
+    ${camposJugadorHTML('ed', j.posiciones, j.resistencia)}
     <p class="muted">El histórico y las estadísticas se conservan. Cada partido guardado recuerda el dorsal con el que se jugó. Si vas a subir un acta con el dorsal nuevo, cámbialo antes.</p>
     <div class="row"><button class="blue" onclick="cerrarDlg()">Cancelar</button><button class="main" onclick="guardarJugador(${i})">Guardar</button></div>`);
 }
@@ -801,7 +809,7 @@ function guardarJugador(i) {
   const viejo = j.nombre;
   fijarDorsales(j);
   if (nombre !== viejo) renombrar(viejo, nombre);
-  j.dorsal = dorsal;
+  j.dorsal = dorsal; Object.assign(j, leerCampos('ed'));
   saveState(); cerrarDlg(); renderPlantilla();
 }
 
@@ -835,6 +843,30 @@ function lanzarVuelta(i) {
   appState.modo = $('vModo').value; saveState(); cerrarDlg(); generarVuelta(i);
 }
 
+/* ---------- Datos del jugador: posiciones y resistencia ---------- */
+const POSICIONES = {B: 'Base', E: 'Escolta', A: 'Alero', AP: 'Ala-pívot', P: 'Pívot'};
+/* Resistencia = periodos seguidos que aguanta en pista (1 a 3). Sin definir: se usa el límite del equipo. */
+function camposJugadorHTML(pref, pos, res) {
+  pos = pos || [];
+  return `<label><b>Posiciones</b> <span class="muted">(puedes marcar varias)</span></label>
+    <div class="chips" id="${pref}Pos">${Object.entries(POSICIONES).map(([k, n]) => `<label class="chipc"><input type="checkbox" value="${k}" ${pos.includes(k) ? 'checked' : ''}><span>${n}</span></label>`).join('')}</div>
+    <label for="${pref}Res"><b>Resistencia</b> <span class="muted">(periodos seguidos que aguanta en pista)</span></label>
+    <select id="${pref}Res">
+      <option value="0"${!res ? ' selected' : ''}>Sin definir (usa el límite del equipo)</option>
+      <option value="1"${res === 1 ? ' selected' : ''}>1 · un periodo seguido</option>
+      <option value="2"${res === 2 ? ' selected' : ''}>2 · dos periodos seguidos</option>
+      <option value="3"${res === 3 ? ' selected' : ''}>3 · tres periodos seguidos</option>
+    </select>`;
+}
+function leerCampos(pref) {
+  return {posiciones: [...document.querySelectorAll('#' + pref + 'Pos input:checked')].map(c => c.value), resistencia: +$(pref + 'Res').value || 0};
+}
+function infoJugador(j) {
+  const t = [(j.posiciones || []).map(k => POSICIONES[k]).filter(Boolean).join(' · '), j.resistencia >= 1 ? 'Resistencia ' + j.resistencia : ''].filter(Boolean).join(' · ');
+  return t ? `<br><small class="muted">${esc(t)}</small>` : '';
+}
+const cortoJugador = j => [(j.posiciones || []).join('/'), j.resistencia >= 1 ? 'R' + j.resistencia : ''].filter(Boolean).join(' · ');
+
 /* ---------- Plantilla ---------- */
 function partidosJugados(j) { return appState.partidos.filter(p => (p.periodos || {})[j.nombre] > 0).length; }
 
@@ -846,7 +878,7 @@ function renderPlantilla() {
     const pj = partidosJugados(j);
     return `<tr>
       <td><input type="checkbox" class="chk" aria-label="Disponible" ${j.disponible ? 'checked' : ''} onchange="appState.jugadores[${i}].disponible=this.checked;saveState();renderContDisp()"></td>
-      <td><b>#${esc(j.dorsal)}</b></td><td class="l">${esc(j.nombre)}</td>
+      <td><b>#${esc(j.dorsal)}</b></td><td class="l">${esc(j.nombre)}${infoJugador(j)}</td>
       <td>${pj}</td><td>${j.periodosTotales || 0}</td><td>${j.puntosTotales || 0}</td>
       <td>${j.periodosTotales ? (j.puntosTotales / j.periodosTotales).toFixed(2) : '–'}</td>
       <td style="white-space:nowrap"><button class="blue" style="width:auto;padding:4px 10px;margin:0 6px 0 0;display:inline-flex" aria-label="Editar ${esc(j.nombre)}" onclick="editarJugador(${i})">Editar</button><button class="danger" style="width:auto;padding:4px 8px;margin:0;display:inline-flex" aria-label="Eliminar ${esc(j.nombre)}" onclick="eliminarJugador(${i})">X</button></td></tr>`;
@@ -858,8 +890,8 @@ function agregarJugador() {
   const dorsal = parseInt($('dorsalJugador').value, 10);
   if (!nombre || isNaN(dorsal)) { alert('Escribe el nombre y el dorsal.'); return; }
   if (appState.jugadores.some(j => j.dorsal === dorsal)) { alert('Ya hay un jugador con el dorsal ' + dorsal + '.'); return; }
-  appState.jugadores.push({nombre, dorsal, periodosTotales:0, puntosTotales:0, disponible:true});
-  $('nombreJugador').value = '';$('dorsalJugador').value = '';
+  appState.jugadores.push({nombre, dorsal, periodosTotales:0, puntosTotales:0, disponible:true, ...leerCampos('al')});
+  $('nombreJugador').value = '';$('dorsalJugador').value = ''; $('altaCampos').innerHTML = camposJugadorHTML('al');
   saveState(); renderPlantilla();
 }
 
@@ -915,6 +947,9 @@ const DESC_MODO = {
 function cambiarModo(v) { appState.modo = v; saveState(); $('descModo').textContent = DESC_MODO[v]; }
 
 /* ¿Cumple la propuesta las reglas del modo? Devuelve los periodos de cada jugador, o null si incumple algo. */
+/* Máximo de periodos seguidos de un jugador: el menor entre el límite del equipo y su resistencia (99 = sin límite) */
+const limDe = (cfg, n) => Math.min(cfg.rc || 99, (cfg.res && cfg.res[n]) || 99);
+
 function cumple(al, disp, cfg, m6) {
   const c = {}, c5 = {}, c6 = {}, run = {};
   disp.forEach(j => { c[j.nombre] = c5[j.nombre] = c6[j.nombre] = run[j.nombre] = 0; });
@@ -923,7 +958,7 @@ function cumple(al, disp, cfg, m6) {
     if (!cfg.libre && new Set(l).size !== 5) return null;
     for (const j of disp) {
       const n = j.nombre;
-      if (l.includes(n)) { c[n]++; run[n]++; if (p <= 4) c5[n]++; if (p <= 5) c6[n]++; if (!cfg.libre && cfg.rc && run[n] > cfg.rc) return null; } else run[n] = 0;
+      if (l.includes(n)) { c[n]++; run[n]++; if (p <= 4) c5[n]++; if (p <= 5) c6[n]++; if (!cfg.libre && run[n] > limDe(cfg, n)) return null; } else run[n] = 0;
     }
   }
   if (!cfg.libre) for (const j of disp) {
@@ -936,11 +971,20 @@ function cumple(al, disp, cfg, m6) {
 /* Puntuación de una propuesta: pone a los mejores en los periodos que más pesan, pero cada periodo debe quedar
    proporcional a su peso (que no haya periodos con todos los flojos juntos): se penaliza alejarse de la fuerza objetivo
    de cada periodo y, con más dureza, quedar por debajo del 85 % de ella. */
+/* Preferencia de posiciones: que haya un base y un jugador interior (ala-pívot o pívot) en pista cuando la plantilla los tiene */
+let POS = {m: {}, base: false, int: false};
+function penalCobertura(l) {
+  let p = 0;
+  if (POS.base && !l.some(n => (POS.m[n] || []).includes('B'))) p++;
+  if (POS.int && !l.some(n => (POS.m[n] || []).some(k => k === 'AP' || k === 'P'))) p++;
+  return p;
+}
+
 function puntuar(al, v, pesos) {
   const L = al.map(l => l.reduce((s, n) => s + v[n], 0)), m = L.reduce((a, b) => a + b, 0) / 8, wm = pesos.reduce((a, b) => a + b, 0) / 8;
   let J = 0;
   L.forEach((x, p) => { const t = m * pesos[p] / wm; J += pesos[p] * x - (x - t) * (x - t) - 5 * Math.max(0, 0.85 * t - x) ** 2; });
-  return J;
+  return J - 1.5 * al.reduce((s, l) => s + penalCobertura(l), 0);
 }
 
 /* Mejora una propuesta válida con cambios pequeños (intercambiar dos jugadores entre periodos, o sustituir uno por quien descansa)
@@ -984,7 +1028,7 @@ function buscar(disp, pesos, v, cfg, its) {
           if (urg <= 0) must = true; else if (urg < 4) s += 6 / urg;
           if (p <= 5 && c6[n] >= 5) ban = true;
           if (cfg.hi !== undefined && c[n] >= cfg.hi) ban = true;
-          if (cfg.rc && rac[n] >= cfg.rc) ban = true;
+          if (rac[n] >= limDe(cfg, n)) ban = true;
         }
         return [must ? s + 1e3 : ban ? s - 1e3 : s, n, must, ban];
       }).sort((a, b) => b[0] - a[0]);
@@ -1001,10 +1045,10 @@ function buscar(disp, pesos, v, cfg, its) {
   if (!validas.length) return null;
   validas.sort((a, b) => b.J - a.J);
   const ctx = {disp, v, pesos, cfg, m6}, limite = Date.now() + 700;
-  let best = null, bestJ = -1e9;
+  let best = validas[0].al, bestJ = -Infinity;
   validas.slice(0, cfg.libre ? 1 : 6).forEach(x => {
     const al = cfg.libre ? x.al : mejorar(x.al, ctx, limite), J = puntuar(al, v, pesos);
-    if (J > bestJ) { bestJ = J; best = al; }
+    if (J > bestJ || !(bestJ > -Infinity)) { bestJ = J; best = al; }
   });
   return {al: best, cnt: cumple(best, disp, cfg, m6)};
 }
@@ -1012,13 +1056,18 @@ function buscar(disp, pesos, v, cfg, its) {
 function optimizar(disp, pesos) {
   const val = valorJugador(), v = {};
   disp.forEach(j => v[j.nombre] = val(j));
+  POS = {m: {}, base: false, int: false};
+  disp.forEach(j => { const ps = j.posiciones || []; POS.m[j.nombre] = ps; if (ps.includes('B')) POS.base = true; if (ps.some(k => k === 'AP' || k === 'P')) POS.int = true; });
+  const res = {}; disp.forEach(j => { if (j.resistencia >= 1) res[j.nombre] = j.resistencia; });
+  const hayRes = Object.keys(res).length, R = hayRes ? {res} : {};
   const modo = MODOS[appState.modo] ? appState.modo : 'eq', N = disp.length, avg = 40 / N;
   const reparto = modo === 'eq' ? {lo: Math.min(4, Math.floor(avg)), hi: Math.min(8, Math.max(6, Math.ceil(avg)))}
     : modo === 'equi' ? {lo: Math.floor(avg), hi: Math.ceil(avg)} : {};
   const L = seguidos(), hay = Object.keys(reparto).length;
-  const niveles = [[{...reparto, rc: L}, '']];
-  if (modo === 'equi') niveles.push([{lo: reparto.lo - 1, hi: reparto.hi + 1, rc: L}, 'No ha sido posible un reparto exactamente equitativo con estas condiciones: la diferencia entre jugadores es de hasta 2 periodos.']);
-  if (hay) niveles.push([{rc: L}, `No he podido cumplir el reparto del modo ${MODOS[modo]}; he aplicado solo la normativa${L ? ' y el límite de periodos seguidos' : ''}.`]);
+  const niveles = [[{...reparto, rc: L, ...R}, '']];
+  if (modo === 'equi') niveles.push([{lo: reparto.lo - 1, hi: reparto.hi + 1, rc: L, ...R}, 'No ha sido posible un reparto exactamente equitativo con estas condiciones: la diferencia entre jugadores es de hasta 2 periodos.']);
+  if (hay) niveles.push([{rc: L, ...R}, `No he podido cumplir el reparto del modo ${MODOS[modo]}; he aplicado solo la normativa${L || hayRes ? ' y los límites de periodos seguidos' : ''}.`]);
+  if (hayRes) niveles.push([{rc: L}, 'No he podido respetar la resistencia de algún jugador con estas condiciones.']);
   if (L) niveles.push([{}, `No he podido evitar que alguien juegue ${L + 1} periodos seguidos: con los jugadores disponibles no es posible cumplir el límite de ${L}.`]);
   for (let k = 0; k < niveles.length; k++) {
     const r = buscar(disp, pesos, v, niveles[k][0]) || (k === 0 ? buscar(disp, pesos, v, niveles[k][0], 10000) : null);
@@ -1041,6 +1090,8 @@ function crearPropuesta(rival, pesos, nota, rivalAlin) {
   if (prev && prev.editados && prev.editados.some(Boolean) && !confirm('Tienes cambios manuales en la propuesta actual y se perderán. ¿Continuar?')) return;
   const r = optimizar(disp, pesos);
   appState.propuestaActual = {rival, alineacion: r.al, conteo: r.cnt, pesos, nota, aviso: r.aviso, info: r.info || '', rivalAlin: rivalAlin || null, modo: appState.modo || 'eq', seg: seguidos(), orig: r.al.map(l => [...l]), editados: Array(8).fill(false), actual: 0};
+  const rv = revisarPropuesta(appState.propuestaActual).filter(a => a.includes('resistencia'));
+  if (rv.length) appState.propuestaActual.aviso = (appState.propuestaActual.aviso ? appState.propuestaActual.aviso + ' ' : '') + 'Resistencia: ' + rv.join('; ') + '.';
   saveState(); $('inputRivalGuardar').value = rival;
   navigateTo('tab-propuesta', 'Propuesta de Alineación');
 }
@@ -1093,11 +1144,12 @@ function revisarPropuesta(pr) {
   const L = pr.seg === undefined ? 3 : pr.seg, av = [];
   const nom = n => { const j = appState.jugadores.find(x => x.nombre === n); return (j ? '#' + j.dorsal + ' ' : '') + n.split(' ')[0]; };
   Object.keys(pr.conteo).forEach(n => {
+    const j = appState.jugadores.find(x => x.nombre === n), r = j && j.resistencia >= 1 ? j.resistencia : 99, lim = Math.min(L || 99, r);
     let c5 = 0, c6 = 0, run = 0, max = 0;
     pr.alineacion.forEach((l, p) => { if (l.includes(n)) { run++; max = Math.max(max, run); if (p <= 4) c5++; if (p <= 5) c6++; } else run = 0; });
     if (c5 < 2) av.push(`${nom(n)} juega ${c5} periodo${c5 === 1 ? '' : 's'} antes del 6º (mínimo 2)`);
     if (c6 > 5) av.push(`${nom(n)} juega ${c6} de los 6 primeros periodos (máximo 5)`);
-    if (L && max > L) av.push(`${nom(n)} juega ${max} periodos seguidos (tu límite es ${L})`);
+    if (max > lim) av.push(`${nom(n)} juega ${max} periodos seguidos (${r <= (L || 99) ? 'su resistencia es ' + r : 'tu límite es ' + L})`);
   });
   pr.alineacion.forEach((l, p) => { if (new Set(l).size !== 5) av.push(`El periodo ${p + 1} no tiene 5 jugadores distintos`); });
   return av;
@@ -1116,7 +1168,7 @@ function editarPeriodo(i) {
   const en = new Set(pr.alineacion[i]), lista = appState.jugadores.filter(j => j.disponible || en.has(j.nombre));
   abrirDlg(`<h3>Periodo ${i + 1}: cambiar jugadores</h3>
     <p class="muted">Deja marcados exactamente 5 jugadores; los demás descansan. Si el cambio incumple la normativa o tu límite de seguidos, te lo aviso, pero puedes guardarlo.</p>
-    ${lista.map(j => `<label class="opt"><input type="checkbox" class="chk edJ" data-n="${esc(j.nombre)}" ${en.has(j.nombre) ? 'checked' : ''} onchange="contarEdicion()"><span><b>#${esc(j.dorsal)}</b> ${esc(j.nombre)} <small class="muted">· ${pr.conteo[j.nombre] || 0} periodos</small></span></label>`).join('')}
+    ${lista.map(j => `<label class="opt"><input type="checkbox" class="chk edJ" data-n="${esc(j.nombre)}" ${en.has(j.nombre) ? 'checked' : ''} onchange="contarEdicion()"><span><b>#${esc(j.dorsal)}</b> ${esc(j.nombre)} <small class="muted">· ${pr.conteo[j.nombre] || 0} periodos${cortoJugador(j) ? ' · ' + cortoJugador(j) : ''}</small></span></label>`).join('')}
     <p id="edCuenta" class="muted"></p>
     <div class="row"><button class="blue" onclick="cerrarDlg()">Cancelar</button>${pr.editados && pr.editados[i] ? `<button class="blue" onclick="restaurarPeriodo(${i})">Volver a lo propuesto</button>` : ''}<button class="main" id="edGuardar" onclick="guardarPeriodo(${i})">Guardar</button></div>`);
   contarEdicion();
