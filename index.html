@@ -309,6 +309,10 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
 .chipc input:focus-visible + span { outline: 2px solid var(--secondary); outline-offset: 2px; }
 .opt { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 0.9rem; color: var(--text-muted); }
 .opt .chk { flex: none; margin: 0; }
+.ind { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: 6px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--card); font-size: 0.9rem; }
+.ind.off { opacity: 0.55; }
+.ind span { flex: 1; }
+.ind button { width: auto; padding: 4px 10px; margin: 0; display: inline-flex; }
 </style>
 </head>
 <body>
@@ -401,6 +405,11 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
         <option value="7">7</option>
       </select>
       <p class="muted" id="descSeguidos" style="margin-top:-6px; margin-bottom:14px"></p>
+
+      <label><b>Indicaciones para la propuesta</b></label>
+      <p class="muted" style="margin-top:0">Por ejemplo: que dos jugadores no coincidan en pista, que alguien juegue solo X periodos o que no juegue en periodos concretos. La propuesta las respeta siempre que sea posible y te avisa si no.</p>
+      <div id="listaInd"></div>
+      <button class="blue" onclick="indicacionDlg(-1)" style="margin-bottom:18px">Añadir indicación</button>
 
       <label for="rivalInputP1"><b>Próximo rival</b></label>
       <input id="rivalInputP1" placeholder="Nombre del equipo rival">
@@ -529,7 +538,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 const KEY = 'mini_alineaciones_db';
 const nuevoId = () => 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-const nuevoEquipo = nombre => ({id: nuevoId(), nombre, jugadores: [], partidos: [], propuestaActual: null, modo: 'eq', maxSeguidos: 3});
+const nuevoEquipo = nombre => ({id: nuevoId(), nombre, jugadores: [], partidos: [], propuestaActual: null, modo: 'eq', maxSeguidos: 3, indicaciones: []});
 
 /* Las claves antiguas se migran a las nuevas sin perder datos */
 [['montmelo_cb_db', KEY], ['montmelo_cb_meta', 'mini_alineaciones_meta'], ['montmelo_cb_pin', 'mini_alineaciones_pin']].forEach(([o, n]) => {
@@ -545,7 +554,7 @@ function aDb(d) {
 }
 function activar(d) {
   db = aDb(d);
-  db.equipos.forEach(e => { e.modo = e.modo || 'eq'; e.partidos = e.partidos || []; e.jugadores = e.jugadores || []; e.jugadores.forEach(j => { if (j.disponible === undefined) j.disponible = true; }); normalizarPropuesta(e.propuestaActual); });
+  db.equipos.forEach(e => { e.modo = e.modo || 'eq'; e.partidos = e.partidos || []; e.jugadores = e.jugadores || []; e.indicaciones = Array.isArray(e.indicaciones) ? e.indicaciones : []; e.jugadores.forEach(j => { if (j.disponible === undefined) j.disponible = true; }); normalizarPropuesta(e.propuestaActual); });
   appState = db.equipos.find(e => e.id === db.activo) || db.equipos[0]; db.activo = appState.id;
 }
 
@@ -700,7 +709,7 @@ const PASOS = [
   {t: 'Equipos y plantilla', art: '<span class="chip on">Mini Mi Club</span><span class="chip">Infantil</span><span class="chip">+ Nuevo equipo</span>',
    txt: '<p>En <b>Plantilla</b> puedes crear <b>varios equipos</b> (club y categoría), cada uno con sus jugadores y estadísticas.</p><p>Marca quién está <b>disponible</b>: la normativa exige <b>entre 7 y 12 jugadores</b> por partido. Con «Editar» cambias el nombre o el dorsal de un jugador <b>sin perder el histórico</b>, y le indicas sus <b>posiciones</b> y su <b>resistencia</b> (1 a 3 periodos seguidos que aguanta en pista).</p>'},
   {t: 'Cómo se reparten los periodos', art: '<span class="chip on">Competitivo</span><span class="chip">Equilibrio</span><span class="chip">Equitativo</span><span class="chip">Máx. 3 seguidos</span>',
-   txt: '<p>Elige el modo: <b>Competitivo</b> prima a los mejores, <b>Equilibrio</b> da a todos 4-6 periodos y <b>Equitativo</b> los mismos a todos.</p><p>Siempre se cumple la <b>normativa</b> (mínimo 2 periodos antes del 6º y máximo 5 en los 6 primeros). Además puedes fijar <b>cuántos periodos seguidos</b> puede jugar alguien (por defecto 3) o <b>quitar el límite</b>.</p>'},
+   txt: '<p>Elige el modo: <b>Competitivo</b> prima a los mejores, <b>Equilibrio</b> da a todos 4-6 periodos y <b>Equitativo</b> los mismos a todos.</p><p>Siempre se cumple la <b>normativa</b> (mínimo 2 periodos antes del 6º y máximo 5 en los 6 primeros). Además puedes fijar <b>cuántos periodos seguidos</b> puede jugar alguien (por defecto 3) o <b>quitar el límite</b>.</p><p>Y añadir <b>indicaciones</b>: que dos jugadores <b>no coincidan</b> en pista, que alguien juegue <b>solo X periodos</b> o que <b>no juegue</b> (o juegue) en periodos concretos.</p>'},
   {t: 'Propuesta de quintetos', art: '<div class="per"><span class="on">P1</span><span>P2</span><span>P3</span><span>P4</span><span>P5</span><span>P6</span><span>P7</span><span>P8</span></div>',
    txt: '<p>Genera los 8 quintetos con un clic. La propuesta <b>mezcla jugadores fuertes y flojos</b> para que ningún periodo quede muy desequilibrado, <b>respeta la resistencia</b> de cada jugador e intenta tener un <b>base y un interior</b> en pista. Durante el partido, pulsa <b>Siguiente ▶</b> para dar las salidas a la mesa y a los jugadores: ves quién sale, quién descansa y el siguiente quinteto.</p>'},
   {t: 'Ajústala a tu criterio', art: '<span class="chip">#8 ⇄ #13</span><span class="chip on">✏️ Editar</span>',
@@ -784,6 +793,7 @@ function renombrar(a, b) {
   appState.partidos.forEach(p => { mv(p.periodos); mv(p.puntos); mv(p.perArr); mv(p.dorsales); });
   const pr = appState.propuestaActual;
   if (pr) { pr.alineacion = pr.alineacion.map(l => l.map(n => n === a ? b : n)); mv(pr.conteo); }
+  [...(appState.indicaciones || []), ...((pr && pr.ind) || [])].forEach(r => { r.jug = (r.jug || []).map(n => n === a ? b : n); });
   appState.jugadores.find(j => j.nombre === a).nombre = b;
 }
 
@@ -823,6 +833,7 @@ function abrirVuelta(i) {
     <label><b>Jugadores que cuentan para esta propuesta</b></label>
     ${appState.jugadores.map((j, k) => `<label class="opt"><input type="checkbox" class="chk vJug" data-k="${k}" ${j.disponible ? 'checked' : ''} onchange="contarVuelta()"><span><b>#${esc(j.dorsal)}</b> ${esc(j.nombre)}</span></label>`).join('') || '<p class="muted">No hay jugadores en la plantilla.</p>'}
     <p class="muted">¿Falta alguien? Añádelo antes en la pestaña Plantilla.</p>
+    ${(appState.indicaciones || []).some(r => r.on !== false) ? '<p class="muted">📌 Se aplicarán tus indicaciones de la pestaña Plantilla.</p>' : ''}
     <p class="muted" id="vCuenta"></p>
     <div class="row"><button class="blue" onclick="cerrarDlg()">Cancelar</button><button class="main" onclick="lanzarVuelta(${i})">Generar</button></div>`);
   contarVuelta();
@@ -871,13 +882,13 @@ const cortoJugador = j => [(j.posiciones || []).join('/'), j.resistencia >= 1 ? 
 function partidosJugados(j) { return appState.partidos.filter(p => (p.periodos || {})[j.nombre] > 0).length; }
 
 function renderPlantilla() {
-  refrescarEquipos(); pintarSeguidos(); renderContDisp();
+  refrescarEquipos(); pintarSeguidos(); renderContDisp(); renderIndicaciones();
   $('modoReparto').value = MODOS[appState.modo] ? appState.modo : 'eq'; $('descModo').textContent = DESC_MODO[$('modoReparto').value];
   $('avisoVacio').style.display = appState.jugadores.length ? 'none' : 'block';
   $('tablaJugadores').innerHTML = appState.jugadores.map((j, i) => {
     const pj = partidosJugados(j);
     return `<tr>
-      <td><input type="checkbox" class="chk" aria-label="Disponible" ${j.disponible ? 'checked' : ''} onchange="appState.jugadores[${i}].disponible=this.checked;saveState();renderContDisp()"></td>
+      <td><input type="checkbox" class="chk" aria-label="Disponible" ${j.disponible ? 'checked' : ''} onchange="appState.jugadores[${i}].disponible=this.checked;saveState();renderContDisp();renderIndicaciones()"></td>
       <td><b>#${esc(j.dorsal)}</b></td><td class="l">${esc(j.nombre)}${infoJugador(j)}</td>
       <td>${pj}</td><td>${j.periodosTotales || 0}</td><td>${j.puntosTotales || 0}</td>
       <td>${j.periodosTotales ? (j.puntosTotales / j.periodosTotales).toFixed(2) : '–'}</td>
@@ -897,7 +908,117 @@ function agregarJugador() {
 
 function eliminarJugador(i) {
   if (!confirm('¿Eliminar a ' + appState.jugadores[i].nombre + ' de la plantilla?')) return;
-  appState.jugadores.splice(i, 1); saveState(); renderPlantilla();
+  const n = appState.jugadores[i].nombre;
+  appState.jugadores.splice(i, 1);
+  appState.indicaciones = (appState.indicaciones || []).map(r => ({...r, jug: (r.jug || []).filter(x => x !== n)})).filter(r => r.jug.length >= (r.tipo === 'sep' ? 2 : 1));
+  saveState(); renderPlantilla();
+}
+
+/* ---------- Indicaciones del entrenador ----------
+   Reglas por equipo que la propuesta respeta como condiciones obligatorias:
+   sep = no coinciden en pista · exacto/max/min = número de periodos · si/no = periodos en los que juega o no juega.
+   Se guardan por nombre de jugador: {id, tipo, jug: [nombres], n, per: [1..8], on}. */
+const TIPOS_IND = {sep: 'No coinciden en pista', exacto: 'Juega exactamente X periodos', max: 'Juega como máximo X periodos', min: 'Juega como mínimo X periodos', si: 'Juega en estos periodos', no: 'No juega en estos periodos'};
+const yLista = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1] : (a[0] || '');
+const nomInd = n => { const j = appState.jugadores.find(x => x.nombre === n); return (j ? '#' + j.dorsal + ' ' : '') + n.split(' ')[0]; };
+function textoInd(r) {
+  const js = (r.jug || []).map(nomInd), pl = js.length > 1, quien = yLista(js), juega = pl ? 'juegan' : 'juega';
+  const per = [...(r.per || [])].sort((a, b) => a - b), pt = per.length > 1 ? 'los periodos ' + yLista(per.map(String)) : 'el periodo ' + per[0];
+  const np = r.n + ' periodo' + (r.n === 1 ? '' : 's');
+  return {sep: `${quien} no coinciden en pista`, exacto: `${quien} ${juega} exactamente ${np}`, max: `${quien} ${juega} como máximo ${np}`,
+    min: `${quien} ${juega} como mínimo ${np}`, si: `${quien} ${juega} en ${pt}`, no: `${quien} no ${juega} en ${pt}`}[r.tipo] || '';
+}
+
+/* Traduce las indicaciones activas a restricciones sobre los jugadores disponibles. Las que citan a jugadores no disponibles se ignoran. */
+function compilarInd(reglas, nombres) {
+  const S = new Set(nombres), I = {loP: {}, hiP: {}, si: {}, no: {}, sep: [], exento: {}, n: 0};
+  (reglas || []).filter(r => r.on !== false).forEach(r => {
+    const js = (r.jug || []).filter(n => S.has(n));
+    if (r.tipo === 'sep') { if (js.length >= 2) { I.sep.push(js); I.n++; } return; }
+    if (!js.length) return;
+    I.n++;
+    js.forEach(n => {
+      if (r.tipo === 'exacto' || r.tipo === 'min') I.loP[n] = Math.max(I.loP[n] ?? 0, r.n);
+      if (r.tipo === 'exacto' || r.tipo === 'max') I.hiP[n] = Math.min(I.hiP[n] ?? 8, r.n);
+      if (r.tipo === 'si' || r.tipo === 'no') { const m = I[r.tipo]; m[n] = m[n] || new Set(); (r.per || []).forEach(p => m[n].add(p)); }
+    });
+  });
+  /* Si una indicación hace imposible el mínimo de 2 periodos antes del 6º, ese jugador queda exento de esa parte de la normativa */
+  nombres.forEach(n => {
+    const libres5 = [1, 2, 3, 4, 5].filter(p => !(I.no[n] && I.no[n].has(p))).length;
+    if ((I.hiP[n] !== undefined && I.hiP[n] < 2) || libres5 < 2) I.exento[n] = true;
+  });
+  return I;
+}
+
+/* ¿Incumple la alineación esta indicación? Devuelve el detalle o '' */
+function incumpleInd(r, al) {
+  const js = (r.jug || []).filter(n => al.some(l => l.includes(n)) || appState.jugadores.some(j => j.nombre === n && j.disponible));
+  if (r.tipo === 'sep') {
+    const ps = al.map((l, p) => js.filter(n => l.includes(n)).length > 1 ? p + 1 : 0).filter(Boolean);
+    return js.length >= 2 && ps.length ? `coinciden en ${ps.length > 1 ? 'los periodos ' + yLista(ps.map(String)) : 'el periodo ' + ps[0]}` : '';
+  }
+  const mal = [];
+  js.forEach(n => {
+    const c = al.filter(l => l.includes(n)).length, nm = nomInd(n);
+    if ((r.tipo === 'exacto' && c !== r.n) || (r.tipo === 'max' && c > r.n) || (r.tipo === 'min' && c < r.n)) mal.push(`${nm} juega ${c}`);
+    if (r.tipo === 'si') { const f = (r.per || []).filter(p => !al[p - 1].includes(n)); if (f.length) mal.push(`${nm} descansa en ${yLista(f.map(String))}`); }
+    if (r.tipo === 'no') { const f = (r.per || []).filter(p => al[p - 1].includes(n)); if (f.length) mal.push(`${nm} juega en ${yLista(f.map(String))}`); }
+  });
+  return mal.join(', ');
+}
+
+function renderIndicaciones() {
+  const el = $('listaInd'); if (!el) return;
+  const L = appState.indicaciones || [];
+  el.innerHTML = L.length ? L.map((r, i) => {
+    const fuera = (r.jug || []).filter(n => !appState.jugadores.some(j => j.nombre === n && j.disponible));
+    const nota = fuera.length ? `<br><small class="muted">No disponible${fuera.length > 1 ? 's' : ''}: ${esc(fuera.map(nomInd).join(', '))}${r.tipo === 'sep' && r.jug.length - fuera.length < 2 || r.jug.length === fuera.length ? ' · ahora no se aplica' : ''}</small>` : '';
+    return `<div class="ind${r.on === false ? ' off' : ''}"><input type="checkbox" class="chk" aria-label="Aplicar indicación" ${r.on === false ? '' : 'checked'} onchange="appState.indicaciones[${i}].on=this.checked;saveState();renderIndicaciones()">
+      <span>${esc(textoInd(r))}${nota}</span>
+      <button class="blue" onclick="indicacionDlg(${i})">Editar</button><button class="danger" aria-label="Eliminar indicación" onclick="borrarInd(${i})">X</button></div>`;
+  }).join('') : '<p class="muted" style="margin:0 0 8px">Sin indicaciones.</p>';
+}
+
+function indicacionDlg(idx) {
+  if (!appState.jugadores.length) { alert('Primero añade jugadores a la plantilla.'); return; }
+  const r = idx >= 0 ? appState.indicaciones[idx] : {tipo: 'sep', jug: [], n: 3, per: []};
+  abrirDlg(`<h3>${idx >= 0 ? 'Editar' : 'Nueva'} indicación</h3>
+    <label for="inTipo"><b>Tipo</b></label>
+    <select id="inTipo" onchange="pintarCamposInd()">${Object.entries(TIPOS_IND).map(([k, t]) => `<option value="${k}"${k === r.tipo ? ' selected' : ''}>${t}</option>`).join('')}</select>
+    <label><b>Jugadores</b> <span class="muted" id="inAyuda"></span></label>
+    <div class="chips" id="inJug">${appState.jugadores.map((j, k) => `<label class="chipc"><input type="checkbox" value="${k}" ${(r.jug || []).includes(j.nombre) ? 'checked' : ''}><span>#${esc(j.dorsal)} ${esc(j.nombre.split(' ')[0])}</span></label>`).join('')}</div>
+    <div id="inNumW"><label for="inNum"><b>Número de periodos</b></label>
+      <select id="inNum">${[1, 2, 3, 4, 5, 6, 7, 8].map(x => `<option value="${x}"${x === r.n ? ' selected' : ''}>${x}</option>`).join('')}</select></div>
+    <div id="inPerW"><label><b>Periodos</b></label>
+      <div class="chips" id="inPer">${[1, 2, 3, 4, 5, 6, 7, 8].map(x => `<label class="chipc"><input type="checkbox" value="${x}" ${(r.per || []).includes(x) ? 'checked' : ''}><span>${x}º</span></label>`).join('')}</div></div>
+    <p class="muted" id="inNorma"></p>
+    <div class="row"><button class="blue" onclick="cerrarDlg()">Cancelar</button><button class="main" onclick="guardarInd(${idx})">Guardar</button></div>`);
+  pintarCamposInd();
+}
+function pintarCamposInd() {
+  const t = $('inTipo').value, num = ['exacto', 'max', 'min'].includes(t), per = t === 'si' || t === 'no';
+  $('inNumW').style.display = num ? 'block' : 'none'; $('inPerW').style.display = per ? 'block' : 'none';
+  $('inAyuda').textContent = t === 'sep' ? '(marca 2 o más: nunca estarán a la vez en pista)' : '(uno o varios: la indicación se aplica a cada uno)';
+  $('inNorma').textContent = t === 'max' || t === 'exacto' || t === 'no' ? 'Si la indicación impide el mínimo de 2 periodos antes del 6º (por ejemplo, un jugador lesionado que solo juega 1), ese jugador queda exento de esa norma y te lo indico en la propuesta.' : '';
+}
+function guardarInd(idx) {
+  const tipo = $('inTipo').value;
+  const jug = [...document.querySelectorAll('#inJug input:checked')].map(c => appState.jugadores[+c.value].nombre);
+  const per = [...document.querySelectorAll('#inPer input:checked')].map(c => +c.value);
+  if (tipo === 'sep' && jug.length < 2) { alert('Marca al menos 2 jugadores que no deben coincidir.'); return; }
+  if (!jug.length) { alert('Marca al menos un jugador.'); return; }
+  if ((tipo === 'si' || tipo === 'no') && !per.length) { alert('Marca al menos un periodo.'); return; }
+  if (tipo === 'sep' && jug.length > 4) { alert('Con más de 4 jugadores que no pueden coincidir es imposible formar quintetos sin ellos. Marca 4 como máximo.'); return; }
+  const r = {id: idx >= 0 ? appState.indicaciones[idx].id : nuevoId(), tipo, jug, n: +$('inNum').value, per: tipo === 'si' || tipo === 'no' ? per : [], on: true};
+  if (!['exacto', 'max', 'min'].includes(tipo)) delete r.n;
+  appState.indicaciones = appState.indicaciones || [];
+  if (idx >= 0) appState.indicaciones[idx] = r; else appState.indicaciones.push(r);
+  saveState(); cerrarDlg(); renderIndicaciones();
+}
+function borrarInd(i) {
+  if (!confirm('¿Eliminar la indicación «' + textoInd(appState.indicaciones[i]) + '»?')) return;
+  appState.indicaciones.splice(i, 1); saveState(); renderIndicaciones();
 }
 
 /* ---------- Propuesta ---------- */
@@ -949,21 +1070,28 @@ function cambiarModo(v) { appState.modo = v; saveState(); $('descModo').textCont
 /* ¿Cumple la propuesta las reglas del modo? Devuelve los periodos de cada jugador, o null si incumple algo. */
 /* Máximo de periodos seguidos de un jugador: el menor entre el límite del equipo y su resistencia (99 = sin límite) */
 const limDe = (cfg, n) => Math.min(cfg.rc || 99, (cfg.res && cfg.res[n]) || 99);
+/* Mínimo y máximo de periodos de cada jugador (según el modo y las indicaciones); undefined = sin límite */
+const loDe = (cfg, n) => cfg.loP ? cfg.loP[n] : undefined;
+const hiDe = (cfg, n) => cfg.hiP ? cfg.hiP[n] : undefined;
+/* Periodos (índices desde p hasta h-1) en los que el jugador puede jugar según las indicaciones */
+const libres = (I, n, p, h) => { let k = 0; for (let q = p; q < h; q++) if (!(I && I.no[n] && I.no[n].has(q + 1))) k++; return k; };
 
 function cumple(al, disp, cfg, m6) {
-  const c = {}, c5 = {}, c6 = {}, run = {};
+  const c = {}, c5 = {}, c6 = {}, run = {}, I = cfg.libre ? null : cfg.ind;
   disp.forEach(j => { c[j.nombre] = c5[j.nombre] = c6[j.nombre] = run[j.nombre] = 0; });
   for (let p = 0; p < 8; p++) {
     const l = al[p];
     if (!cfg.libre && new Set(l).size !== 5) return null;
+    if (I) for (const g of I.sep) if (g.filter(n => l.includes(n)).length > 1) return null;
     for (const j of disp) {
-      const n = j.nombre;
-      if (l.includes(n)) { c[n]++; run[n]++; if (p <= 4) c5[n]++; if (p <= 5) c6[n]++; if (!cfg.libre && run[n] > limDe(cfg, n)) return null; } else run[n] = 0;
+      const n = j.nombre, en = l.includes(n);
+      if (en) { c[n]++; run[n]++; if (p <= 4) c5[n]++; if (p <= 5) c6[n]++; if (!cfg.libre && run[n] > limDe(cfg, n)) return null; } else run[n] = 0;
+      if (I && ((I.si[n] && I.si[n].has(p + 1) && !en) || (I.no[n] && I.no[n].has(p + 1) && en))) return null;
     }
   }
   if (!cfg.libre) for (const j of disp) {
-    const n = j.nombre;
-    if (c5[n] < 2 || c6[n] > 5 || c6[n] < m6 || (cfg.lo !== undefined && c[n] < cfg.lo) || (cfg.hi !== undefined && c[n] > cfg.hi)) return null;
+    const n = j.nombre, ex = I && I.exento[n], lo = loDe(cfg, n), hi = hiDe(cfg, n);
+    if ((!ex && (c5[n] < 2 || c6[n] < m6)) || c6[n] > 5 || (lo !== undefined && c[n] < lo) || (hi !== undefined && c[n] > hi)) return null;
   }
   return c;
 }
@@ -1018,22 +1146,37 @@ function buscar(disp, pesos, v, cfg, its) {
     const c = {}, c5 = {}, c6 = {}, rac = {}, al = []; let ok = true;
     disp.forEach(j => { const n = j.nombre; c[n] = c5[n] = c6[n] = rac[n] = 0; });
     for (let p = 0; p < 8 && ok; p++) {
+      /* Grupos que no pueden coincidir: solo uno de ellos juega por periodo, así que lo que les falta a todos
+         tiene que caber en los periodos que quedan. Se da prioridad al miembro al que más le falta. */
+      const gu = {};
+      if (!cfg.libre && cfg.ind) cfg.ind.sep.forEach(g => {
+        const f = n => Math.max(0, (loDe(cfg, n) || 0) - c[n]), f5 = n => cfg.ind.exento[n] ? 0 : Math.max(0, 2 - c5[n]);
+        const sl = Math.min((8 - p) - g.reduce((s, n) => s + f(n), 0), p <= 4 ? (5 - p) - g.reduce((s, n) => s + f5(n), 0) : 99);
+        const top = g.filter(n => !(cfg.ind.no[n] && cfg.ind.no[n].has(p + 1)) && rac[n] < limDe(cfg, n) && !(hiDe(cfg, n) !== undefined && c[n] >= hiDe(cfg, n)))
+          .sort((a, b) => (f(b) + f5(b)) - (f(a) + f5(a)) || Math.random() - .5)[0];
+        if (top && f(top) + f5(top) > 0) gu[top] = Math.min(gu[top] ?? 99, sl);
+      });
       const sc = disp.map(j => {
         const n = j.nombre; let s = v[n] * (1 + 0.35 * (Math.random() - .5)) + 0.3 * (Math.random() - .5), must = false, ban = false;
         if (!cfg.libre) {
-          const n1 = Math.max(0, 2 - c5[n]), sl1 = p <= 4 && n1 ? (5 - p) - n1 : 99;
-          const sl2 = cfg.lo !== undefined && cfg.lo - c[n] > 0 ? (8 - p) - (cfg.lo - c[n]) : 99;
-          const n3 = Math.max(0, m6 - c6[n]), sl3 = p <= 5 && n3 ? (6 - p) - n3 : 99;
-          const urg = Math.min(sl1, sl2, sl3);
+          const I = cfg.ind, ex = I && I.exento[n], lo = loDe(cfg, n), hi = hiDe(cfg, n);
+          const n1 = ex ? 0 : Math.max(0, 2 - c5[n]), sl1 = p <= 4 && n1 ? libres(I, n, p, 5) - n1 : 99;
+          const sl2 = lo !== undefined && lo - c[n] > 0 ? libres(I, n, p, 8) - (lo - c[n]) : 99;
+          const n3 = ex ? 0 : Math.max(0, m6 - c6[n]), sl3 = p <= 5 && n3 ? libres(I, n, p, 6) - n3 : 99;
+          const urg = Math.min(sl1, sl2, sl3, gu[n] ?? 99);
           if (urg <= 0) must = true; else if (urg < 4) s += 6 / urg;
           if (p <= 5 && c6[n] >= 5) ban = true;
-          if (cfg.hi !== undefined && c[n] >= cfg.hi) ban = true;
+          if (hi !== undefined && c[n] >= hi) ban = true;
           if (rac[n] >= limDe(cfg, n)) ban = true;
+          if (I && I.no[n] && I.no[n].has(p + 1)) ban = true;
+          if (I && I.si[n] && I.si[n].has(p + 1)) must = true;
         }
         return [must ? s + 1e3 : ban ? s - 1e3 : s, n, must, ban];
       }).sort((a, b) => b[0] - a[0]);
-      const sel = sc.slice(0, 5);
-      if (sc.filter(x => x[2]).length > 5 || sel.some(x => x[3])) { ok = false; break; }
+      /* Se eligen los 5 mejor puntuados saltando a quien coincidiría con alguien con quien no debe coincidir */
+      const sep = (!cfg.libre && cfg.ind) ? cfg.ind.sep : [], sel = [];
+      for (const x of sc) { if (sel.length === 5) break; if (sep.some(g => g.includes(x[1]) && sel.some(y => g.includes(y[1])))) continue; sel.push(x); }
+      if (sc.filter(x => x[2]).length > 5 || sel.length < 5 || sel.some(x => x[3]) || sc.some(x => x[2] && !sel.includes(x))) { ok = false; break; }
       const names = sel.map(x => x[1]);
       disp.forEach(j => { const n = j.nombre;
         if (names.includes(n)) { c[n]++; rac[n]++; if (p <= 4) c5[n]++; if (p <= 5) c6[n]++; } else rac[n] = 0; });
@@ -1053,6 +1196,21 @@ function buscar(disp, pesos, v, cfg, its) {
   return {al: best, cnt: cumple(best, disp, cfg, m6)};
 }
 
+/* Mínimo y máximo de periodos por jugador. Quien tiene una indicación de número de periodos la cumple;
+   el resto se reparte los periodos que quedan según el modo (h = holgura extra en Equitativo). */
+function reparto(nombres, modo, I, h) {
+  const loP = {...I.loP}, hiP = {...I.hiP};
+  if (modo !== 'eq' && modo !== 'equi') return {loP, hiP};
+  const K = nombres.filter(n => loP[n] !== undefined || hiP[n] !== undefined), resto = nombres.filter(n => !K.includes(n));
+  const est = n => hiP[n] !== undefined ? hiP[n] : Math.max(loP[n], 40 / nombres.length);
+  const avg = resto.length ? Math.max(0, 40 - K.reduce((s, n) => s + est(n), 0)) / resto.length : 40 / nombres.length;
+  const lo = modo === 'eq' ? Math.min(4, Math.floor(avg)) : Math.floor(avg) - h;
+  const hi = modo === 'eq' ? Math.min(8, Math.max(6, Math.ceil(avg))) : Math.ceil(avg) + h;
+  resto.forEach(n => { loP[n] = lo; hiP[n] = hi; });
+  K.forEach(n => { if (loP[n] === undefined) loP[n] = Math.min(lo, hiP[n]); if (hiP[n] === undefined) hiP[n] = Math.max(hi, loP[n]); });
+  return {loP, hiP};
+}
+
 function optimizar(disp, pesos) {
   const val = valorJugador(), v = {};
   disp.forEach(j => v[j.nombre] = val(j));
@@ -1060,20 +1218,37 @@ function optimizar(disp, pesos) {
   disp.forEach(j => { const ps = j.posiciones || []; POS.m[j.nombre] = ps; if (ps.includes('B')) POS.base = true; if (ps.some(k => k === 'AP' || k === 'P')) POS.int = true; });
   const res = {}; disp.forEach(j => { if (j.resistencia >= 1) res[j.nombre] = j.resistencia; });
   const hayRes = Object.keys(res).length, R = hayRes ? {res} : {};
-  const modo = MODOS[appState.modo] ? appState.modo : 'eq', N = disp.length, avg = 40 / N;
-  const reparto = modo === 'eq' ? {lo: Math.min(4, Math.floor(avg)), hi: Math.min(8, Math.max(6, Math.ceil(avg)))}
-    : modo === 'equi' ? {lo: Math.floor(avg), hi: Math.ceil(avg)} : {};
-  const L = seguidos(), hay = Object.keys(reparto).length;
-  const niveles = [[{...reparto, rc: L, ...R}, '']];
-  if (modo === 'equi') niveles.push([{lo: reparto.lo - 1, hi: reparto.hi + 1, rc: L, ...R}, 'No ha sido posible un reparto exactamente equitativo con estas condiciones: la diferencia entre jugadores es de hasta 2 periodos.']);
-  if (hay) niveles.push([{rc: L, ...R}, `No he podido cumplir el reparto del modo ${MODOS[modo]}; he aplicado solo la normativa${L || hayRes ? ' y los límites de periodos seguidos' : ''}.`]);
-  if (hayRes) niveles.push([{rc: L}, 'No he podido respetar la resistencia de algún jugador con estas condiciones.']);
-  if (L) niveles.push([{}, `No he podido evitar que alguien juegue ${L + 1} periodos seguidos: con los jugadores disponibles no es posible cumplir el límite de ${L}.`]);
+  const modo = MODOS[appState.modo] ? appState.modo : 'eq', N = disp.length, nombres = disp.map(j => j.nombre);
+  const L = seguidos(), hay = modo !== 'comp';
+  const I0 = compilarInd(appState.indicaciones, nombres), hayInd = I0.n > 0;
+  /* Niveles de exigencia: si no hay propuesta posible con uno, se prueba con el siguiente, más flexible.
+     Las indicaciones se mantienen en todos los niveles; solo se dejan de aplicar si no hay ninguna forma de cumplirlas. */
+  const gen = (I, conInd) => {
+    const c = (m, h, extra) => ({...reparto(nombres, m, I, h), ind: I, ...extra});
+    const nv = [[c(modo, 0, {rc: L, ...R}), '', true]];
+    if (modo === 'equi') nv.push([c(modo, 1, {rc: L, ...R}), 'No ha sido posible un reparto exactamente equitativo con estas condiciones: la diferencia entre jugadores es de hasta 2 periodos.']);
+    if (hay) nv.push([c('comp', 0, {rc: L, ...R}), `No he podido cumplir el reparto del modo ${MODOS[modo]}; he aplicado solo la normativa${L || hayRes ? ' y los límites de periodos seguidos' : ''}${conInd ? ' y tus indicaciones' : ''}.`]);
+    if (hayRes) nv.push([c('comp', 0, {rc: L}), 'No he podido respetar la resistencia de algún jugador con estas condiciones.']);
+    if (L) nv.push([c('comp', 0, {}), `No he podido evitar que alguien juegue ${L + 1} periodos seguidos: con los jugadores disponibles no es posible cumplir el límite de ${L}.`]);
+    return nv;
+  };
+  const niveles = gen(I0, hayInd);
+  /* Si no se pueden cumplir todas, se prueba quitando una sola indicación (la propuesta aplica las demás) */
+  const activas = (appState.indicaciones || []).filter(r => r.on !== false && compilarInd([r], nombres).n);
+  if (activas.length > 1) activas.forEach(r => {
+    const nv = gen(compilarInd(activas.filter(x => x !== r), nombres), true), aviso = `No he podido cumplir «${textoInd(r)}» junto con el resto; las demás indicaciones sí se aplican.`;
+    [nv[0], nv[nv.length - 1]].filter((x, i, a) => a.indexOf(x) === i).forEach(([c, a]) => niveles.push([c, (aviso + ' ' + a).trim()]));
+  });
+  if (hayInd) gen(compilarInd([], nombres), false).forEach(([c, a], k) => niveles.push([c, ('No he podido cumplir todas tus indicaciones junto con la normativa y los jugadores disponibles: esta propuesta no las aplica (abajo ves cuáles fallan). ' + a).trim(), !k]));
   for (let k = 0; k < niveles.length; k++) {
-    const r = buscar(disp, pesos, v, niveles[k][0]) || (k === 0 ? buscar(disp, pesos, v, niveles[k][0], 10000) : null);
+    const r = buscar(disp, pesos, v, niveles[k][0]) || (niveles[k][2] ? buscar(disp, pesos, v, niveles[k][0], 10000) : null);
     if (r) {
       r.aviso = niveles[k][1];
-      if (modo === 'equi' && !k && 40 % N) r.info = `Con ${N} jugadores no se puede repartir exactamente igual: la diferencia máxima es de 1 periodo.`;
+      const info = [];
+      if (modo === 'equi' && !k && 40 % N && !Object.keys(I0.loP).length && !Object.keys(I0.hiP).length) info.push(`Con ${N} jugadores no se puede repartir exactamente igual: la diferencia máxima es de 1 periodo.`);
+      const ex = Object.keys(niveles[k][0].ind.exento);
+      if (ex.length) info.push(`Por tus indicaciones, ${yLista(ex.map(nomInd))} no ${ex.length > 1 ? 'pueden' : 'puede'} cumplir el mínimo de 2 periodos antes del 6º que pide la normativa.`);
+      r.info = info.join(' ');
       return r;
     }
   }
@@ -1089,9 +1264,10 @@ function crearPropuesta(rival, pesos, nota, rivalAlin) {
   const prev = appState.propuestaActual;
   if (prev && prev.editados && prev.editados.some(Boolean) && !confirm('Tienes cambios manuales en la propuesta actual y se perderán. ¿Continuar?')) return;
   const r = optimizar(disp, pesos);
-  appState.propuestaActual = {rival, alineacion: r.al, conteo: r.cnt, pesos, nota, aviso: r.aviso, info: r.info || '', rivalAlin: rivalAlin || null, modo: appState.modo || 'eq', seg: seguidos(), orig: r.al.map(l => [...l]), editados: Array(8).fill(false), actual: 0};
-  const rv = revisarPropuesta(appState.propuestaActual).filter(a => a.includes('resistencia'));
+  appState.propuestaActual = {rival, alineacion: r.al, conteo: r.cnt, pesos, nota, aviso: r.aviso, info: r.info || '', rivalAlin: rivalAlin || null, modo: appState.modo || 'eq', seg: seguidos(), ind: JSON.parse(JSON.stringify((appState.indicaciones || []).filter(x => x.on !== false))), orig: r.al.map(l => [...l]), editados: Array(8).fill(false), actual: 0};
+  const todas = revisarPropuesta(appState.propuestaActual), rv = todas.filter(a => a.includes('resistencia')), ri = todas.filter(a => a.startsWith('Indicación'));
   if (rv.length) appState.propuestaActual.aviso = (appState.propuestaActual.aviso ? appState.propuestaActual.aviso + ' ' : '') + 'Resistencia: ' + rv.join('; ') + '.';
+  if (ri.length) appState.propuestaActual.aviso = (appState.propuestaActual.aviso ? appState.propuestaActual.aviso + ' ' : '') + ri.join('; ') + '.';
   saveState(); $('inputRivalGuardar').value = rival;
   navigateTo('tab-propuesta', 'Propuesta de Alineación');
 }
@@ -1152,6 +1328,7 @@ function revisarPropuesta(pr) {
     if (max > lim) av.push(`${nom(n)} juega ${max} periodos seguidos (${r <= (L || 99) ? 'su resistencia es ' + r : 'tu límite es ' + L})`);
   });
   pr.alineacion.forEach((l, p) => { if (new Set(l).size !== 5) av.push(`El periodo ${p + 1} no tiene 5 jugadores distintos`); });
+  (pr.ind || []).forEach(r => { const m = incumpleInd(r, pr.alineacion); if (m) av.push(`Indicación no cumplida «${textoInd(r)}»: ${m}`); });
   return av;
 }
 function pintarAvisosEdicion(pr) {
@@ -1159,7 +1336,7 @@ function pintarAvisosEdicion(pr) {
   if (!pr.editados || !pr.editados.some(Boolean)) { el.style.display = 'none'; return; }
   const av = revisarPropuesta(pr);
   el.style.display = 'block';
-  el.innerHTML = av.length ? `⚠️ <b>Con tus cambios:</b><br>${av.map(esc).join('<br>')}` : '✅ Con tus cambios se siguen cumpliendo la normativa y tu límite de periodos seguidos.';
+  el.innerHTML = av.length ? `⚠️ <b>Con tus cambios:</b><br>${av.map(esc).join('<br>')}` : '✅ Con tus cambios se siguen cumpliendo la normativa, tu límite de periodos seguidos' + ((pr.ind || []).length ? ' y tus indicaciones.' : '.');
 }
 
 function editarPeriodo(i) {
@@ -1167,7 +1344,7 @@ function editarPeriodo(i) {
   normalizarPropuesta(pr);
   const en = new Set(pr.alineacion[i]), lista = appState.jugadores.filter(j => j.disponible || en.has(j.nombre));
   abrirDlg(`<h3>Periodo ${i + 1}: cambiar jugadores</h3>
-    <p class="muted">Deja marcados exactamente 5 jugadores; los demás descansan. Si el cambio incumple la normativa o tu límite de seguidos, te lo aviso, pero puedes guardarlo.</p>
+    <p class="muted">Deja marcados exactamente 5 jugadores; los demás descansan. Si el cambio incumple la normativa, tu límite de seguidos o tus indicaciones, te lo aviso, pero puedes guardarlo.</p>
     ${lista.map(j => `<label class="opt"><input type="checkbox" class="chk edJ" data-n="${esc(j.nombre)}" ${en.has(j.nombre) ? 'checked' : ''} onchange="contarEdicion()"><span><b>#${esc(j.dorsal)}</b> ${esc(j.nombre)} <small class="muted">· ${pr.conteo[j.nombre] || 0} periodos${cortoJugador(j) ? ' · ' + cortoJugador(j) : ''}</small></span></label>`).join('')}
     <p id="edCuenta" class="muted"></p>
     <div class="row"><button class="blue" onclick="cerrarDlg()">Cancelar</button>${pr.editados && pr.editados[i] ? `<button class="blue" onclick="restaurarPeriodo(${i})">Volver a lo propuesto</button>` : ''}<button class="main" id="edGuardar" onclick="guardarPeriodo(${i})">Guardar</button></div>`);
@@ -1213,7 +1390,7 @@ function renderPropuesta() {
   const a = pr.actual || 0, sel = pr.alineacion[a], todos = appState.jugadores.filter(j => j.disponible).map(j => j.nombre);
   $('tituloRivalPropuesta').textContent = 'Rival: ' + pr.rival;
   $('tituloRivalPropuesta').textContent = 'Rival: ' + pr.rival + ' · Modo ' + (MODOS[pr.modo] || 'Equilibrio') + ' · ' + ((pr.seg === undefined ? 3 : pr.seg) ? 'máx. ' + (pr.seg === undefined ? 3 : pr.seg) + ' seguidos' : 'sin límite de seguidos');
-  $('notaPropuesta').textContent = [pr.nota, pr.info ? 'ℹ️ ' + pr.info : '', pr.aviso ? '⚠️ ' + pr.aviso : ''].filter(Boolean).join(' ');
+  $('notaPropuesta').textContent = [pr.nota, (pr.ind || []).length ? '📌 Indicaciones: ' + pr.ind.map(textoInd).join('; ') + '.' : '', pr.info ? 'ℹ️ ' + pr.info : '', pr.aviso ? '⚠️ ' + pr.aviso : ''].filter(Boolean).join(' ');
   $('periodoActual').innerHTML = `<h3 style="margin:0 0 8px">Periodo ${a + 1} de 8${pr.editados && pr.editados[a] ? ' ✏️ editado' : ''}</h3><div>${sel.map(n => tag(n, 1)).join('')}</div>` +
     (a < 7 ? `<p class="muted" style="margin-top:8px">Siguiente: ${pr.alineacion[a + 1].map(n => tag(n)).join('')}</p>` : '') +
     (pr.rivalAlin ? `<p class="muted">Rival en la ida: ${pr.rivalAlin[a].map(d => '#' + d).join(' ')}</p>` : '') +

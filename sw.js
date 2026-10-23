@@ -1,5 +1,5 @@
 /* Service worker: la app funciona sin conexión. Solo guarda en caché el código de la app y pdf.js; nunca datos de jugadores. */
-const V = 'alineaciones-mini-v2';
+const V = 'alineaciones-mini-v3';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 const CDN = ['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'];
 
