@@ -237,6 +237,14 @@ button:active { transform: scale(0.98); }
 
 .box h4 { margin: 0 0 8px; color: var(--text); }
 
+/* Posición (1-5) delante del jugador y comentario del periodo */
+.tag .pn { display: inline-block; min-width: 1.4em; margin-right: 5px; padding: 0 4px; border-radius: 4px; background: var(--primary-dark); color: #fff; text-align: center; }
+.coment { margin-top: 8px; padding: 6px 10px; border-left: 3px solid var(--secondary); background: var(--bg); border-radius: 4px; font-size: 0.85rem; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+.edRow { display: flex; align-items: center; gap: 8px; }
+.edRow .opt { flex: 1; }
+.edRow select { width: auto; flex: none; margin: 0; padding: 4px 6px; }
+.edRow select:disabled { opacity: .35; }
+
 .tag {
   display: inline-block;
   background: var(--primary-light);
@@ -436,7 +444,7 @@ summary { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); cursor
     <div id="contenedorPeriodos" class="grid"></div>
     <div id="resumenPropuesta" class="muted" style="margin-top:14px"></div>
     <div id="avisosEdicion" class="msg" style="display:none; margin-top:12px"></div>
-    <p id="ayudaEdicion" class="muted" style="display:none; margin-top:10px">✏️ Puedes cambiar los jugadores de cualquier periodo con el botón «Editar».</p>
+    <p id="ayudaEdicion" class="muted" style="display:none; margin-top:10px">✏️ Con el botón «Editar» de cada periodo puedes cambiar los jugadores, asignarles su posición (1 a 5) y añadir un comentario.</p>
     <button class="blue" id="btnRegenerar" onclick="generarAlineacionNuevoPartido(true)" style="display:none; margin-top:12px">Generar alternativa</button>
   </div>
 </div>
@@ -792,7 +800,7 @@ function renombrar(a, b) {
   const mv = o => { if (o && a in o) { o[b] = o[a]; delete o[a]; } };
   appState.partidos.forEach(p => { mv(p.periodos); mv(p.puntos); mv(p.perArr); mv(p.dorsales); });
   const pr = appState.propuestaActual;
-  if (pr) { pr.alineacion = pr.alineacion.map(l => l.map(n => n === a ? b : n)); mv(pr.conteo); }
+  if (pr) { pr.alineacion = pr.alineacion.map(l => l.map(n => n === a ? b : n)); mv(pr.conteo); (pr.pos || []).forEach(mv); }
   [...(appState.indicaciones || []), ...((pr && pr.ind) || [])].forEach(r => { r.jug = (r.jug || []).map(n => n === a ? b : n); });
   appState.jugadores.find(j => j.nombre === a).nombre = b;
 }
@@ -1262,9 +1270,9 @@ function crearPropuesta(rival, pesos, nota, rivalAlin) {
   const motivo = reglaConvocatoria(disp.length);
   if (motivo) { alert(motivo + ' Ajusta quién está disponible en la pestaña Plantilla.'); return; }
   const prev = appState.propuestaActual;
-  if (prev && prev.editados && prev.editados.some(Boolean) && !confirm('Tienes cambios manuales en la propuesta actual y se perderán. ¿Continuar?')) return;
+  if (prev && ((prev.editados && prev.editados.some(Boolean)) || tienePosOComent(prev)) && !confirm('Tienes cambios manuales, posiciones o comentarios en la propuesta actual y se perderán. ¿Continuar?')) return;
   const r = optimizar(disp, pesos);
-  appState.propuestaActual = {rival, alineacion: r.al, conteo: r.cnt, pesos, nota, aviso: r.aviso, info: r.info || '', rivalAlin: rivalAlin || null, modo: appState.modo || 'eq', seg: seguidos(), ind: JSON.parse(JSON.stringify((appState.indicaciones || []).filter(x => x.on !== false))), orig: r.al.map(l => [...l]), editados: Array(8).fill(false), actual: 0};
+  appState.propuestaActual = {rival, alineacion: r.al, conteo: r.cnt, pesos, nota, aviso: r.aviso, info: r.info || '', rivalAlin: rivalAlin || null, modo: appState.modo || 'eq', seg: seguidos(), ind: JSON.parse(JSON.stringify((appState.indicaciones || []).filter(x => x.on !== false))), orig: r.al.map(l => [...l]), editados: Array(8).fill(false), coment: Array(8).fill(''), pos: Array.from({length: 8}, () => ({})), actual: 0};
   const todas = revisarPropuesta(appState.propuestaActual), rv = todas.filter(a => a.includes('resistencia')), ri = todas.filter(a => a.startsWith('Indicación'));
   if (rv.length) appState.propuestaActual.aviso = (appState.propuestaActual.aviso ? appState.propuestaActual.aviso + ' ' : '') + 'Resistencia: ' + rv.join('; ') + '.';
   if (ri.length) appState.propuestaActual.aviso = (appState.propuestaActual.aviso ? appState.propuestaActual.aviso + ' ' : '') + ri.join('; ') + '.';
@@ -1307,7 +1315,22 @@ function normalizarPropuesta(pr) {
   if (!Array.isArray(pr.orig) || pr.orig.length !== 8) pr.orig = pr.alineacion.map(l => [...l]);
   if (!Array.isArray(pr.editados) || pr.editados.length !== 8) pr.editados = Array(8).fill(false);
   if (!pr.conteo) pr.conteo = {};
+  if (!Array.isArray(pr.coment) || pr.coment.length !== 8) pr.coment = Array(8).fill('');
+  if (!Array.isArray(pr.pos) || pr.pos.length !== 8) pr.pos = Array.from({length: 8}, () => ({}));
 }
+/* Posiciones de juego por periodo: 1 Base, 2 Escolta, 3 Alero, 4 Ala-pívot, 5 Pívot (pr.pos[periodo][nombre] = 1..5). */
+const NUM_POS = {1: 'Base', 2: 'Escolta', 3: 'Alero', 4: 'Ala-pívot', 5: 'Pívot'};
+const POS_A_NUM = {B: 1, E: 2, A: 3, AP: 4, P: 5};
+const posDe = (pr, i, n) => ((pr.pos || [])[i] || {})[n] || 0;
+/* Ordena el quinteto por posición (1 a 5); los que no tienen posición van al final. */
+const ordenPos = (pr, i, l) => [...l].sort((x, y) => (posDe(pr, i, x) || 9) - (posDe(pr, i, y) || 9));
+function avisoPos(pr, i) {
+  const ns = (pr.alineacion[i] || []).map(n => posDe(pr, i, n)).filter(Boolean);
+  if (!ns.length) return '';
+  const rep = [...new Set(ns.filter((x, k) => ns.indexOf(x) !== k))], falta = [1, 2, 3, 4, 5].filter(x => !ns.includes(x));
+  return [rep.length ? 'posición ' + rep.join(', ') + ' repetida' : '', ns.length === 5 && falta.length ? 'sin ' + falta.join(', ') : ''].filter(Boolean).join(' · ');
+}
+function tienePosOComent(pr) { return !!pr && ((pr.coment || []).some(c => c && c.trim()) || (pr.pos || []).some(o => o && Object.keys(o).length)); }
 function recontar(pr) {
   const c = {};
   appState.jugadores.filter(j => j.disponible).forEach(j => { c[j.nombre] = 0; });
@@ -1343,10 +1366,15 @@ function editarPeriodo(i) {
   const pr = appState.propuestaActual; if (!pr) return;
   normalizarPropuesta(pr);
   const en = new Set(pr.alineacion[i]), lista = appState.jugadores.filter(j => j.disponible || en.has(j.nombre));
-  abrirDlg(`<h3>Periodo ${i + 1}: cambiar jugadores</h3>
-    <p class="muted">Deja marcados exactamente 5 jugadores; los demás descansan. Si el cambio incumple la normativa, tu límite de seguidos o tus indicaciones, te lo aviso, pero puedes guardarlo.</p>
-    ${lista.map(j => `<label class="opt"><input type="checkbox" class="chk edJ" data-n="${esc(j.nombre)}" ${en.has(j.nombre) ? 'checked' : ''} onchange="contarEdicion()"><span><b>#${esc(j.dorsal)}</b> ${esc(j.nombre)} <small class="muted">· ${pr.conteo[j.nombre] || 0} periodos${cortoJugador(j) ? ' · ' + cortoJugador(j) : ''}</small></span></label>`).join('')}
+  const selPos = j => `<select class="edP" data-n="${esc(j.nombre)}" aria-label="Posición de ${esc(j.nombre)}" onchange="contarEdicion()"><option value="0">Pos.</option>${[1, 2, 3, 4, 5].map(x => `<option value="${x}"${posDe(pr, i, j.nombre) === x ? ' selected' : ''}>${x} · ${NUM_POS[x]}</option>`).join('')}</select>`;
+  abrirDlg(`<h3>Periodo ${i + 1}: jugadores, posiciones y comentario</h3>
+    <p class="muted">Deja marcados exactamente 5 jugadores; los demás descansan. A cada jugador en pista le puedes asignar su posición (1 Base, 2 Escolta, 3 Alero, 4 Ala-pívot, 5 Pívot). Si el cambio incumple la normativa, tu límite de seguidos o tus indicaciones, te lo aviso, pero puedes guardarlo.</p>
+    ${lista.map(j => `<div class="edRow"><label class="opt"><input type="checkbox" class="chk edJ" data-n="${esc(j.nombre)}" ${en.has(j.nombre) ? 'checked' : ''} onchange="contarEdicion()"><span><b>#${esc(j.dorsal)}</b> ${esc(j.nombre)} <small class="muted">· ${pr.conteo[j.nombre] || 0} periodos${cortoJugador(j) ? ' · ' + cortoJugador(j) : ''}</small></span></label>${selPos(j)}</div>`).join('')}
     <p id="edCuenta" class="muted"></p>
+    <p id="edPosAviso" class="muted" style="margin-top:-6px"></p>
+    <button class="blue" style="width:auto;padding:4px 10px" onclick="sugerirPos()">Sugerir posiciones según la plantilla</button>
+    <label for="edComent" style="display:block;margin-top:12px"><b>Comentario del periodo</b></label>
+    <textarea id="edComent" rows="3" maxlength="500" placeholder="Por ejemplo: presión a toda pista, defensa individual, que el 2 suba el balón…">${esc(pr.coment[i] || '')}</textarea>
     <div class="row"><button class="blue" onclick="cerrarDlg()">Cancelar</button>${pr.editados && pr.editados[i] ? `<button class="blue" onclick="restaurarPeriodo(${i})">Volver a lo propuesto</button>` : ''}<button class="main" id="edGuardar" onclick="guardarPeriodo(${i})">Guardar</button></div>`);
   contarEdicion();
 }
@@ -1355,6 +1383,20 @@ function contarEdicion() {
   $('edCuenta').textContent = n + ' de 5 jugadores en pista' + (n === 5 ? '' : n < 5 ? ` · faltan ${5 - n}` : ` · sobran ${n - 5}`);
   $('edCuenta').style.color = n === 5 ? 'var(--ok)' : 'var(--bad)';
   $('edGuardar').disabled = n !== 5;
+  const on = new Set([...document.querySelectorAll('.edJ')].filter(c => c.checked).map(c => c.dataset.n));
+  const ps = [...document.querySelectorAll('.edP')];
+  ps.forEach(sel => { sel.disabled = !on.has(sel.dataset.n); });
+  const ns = ps.filter(x => !x.disabled && +x.value).map(x => +x.value), rep = [...new Set(ns.filter((x, k) => ns.indexOf(x) !== k))];
+  $('edPosAviso').textContent = rep.length ? '⚠️ Posición ' + rep.join(', ') + ' asignada a más de un jugador (puedes guardarlo igualmente).' : '';
+}
+/* Propone una posición distinta (1-5) para cada jugador en pista según las posiciones de su ficha; no toca las ya elegidas. */
+function sugerirPos() {
+  const ps = [...document.querySelectorAll('.edP')].filter(x => !x.disabled), usados = new Set(ps.map(x => +x.value).filter(Boolean));
+  const libres = ps.filter(x => !+x.value).map(x => ({sel: x, pref: ((appState.jugadores.find(j => j.nombre === x.dataset.n) || {}).posiciones || []).map(k => POS_A_NUM[k]).filter(Boolean)}));
+  libres.sort((a, b) => (a.pref.length || 9) - (b.pref.length || 9));
+  libres.forEach(o => { const x = o.pref.find(v => !usados.has(v)); if (x) { o.sel.value = x; usados.add(x); } });
+  libres.filter(o => !+o.sel.value).forEach(o => { const x = [1, 2, 3, 4, 5].find(v => !usados.has(v)); if (x) { o.sel.value = x; usados.add(x); } });
+  contarEdicion();
 }
 function guardarPeriodo(i) {
   try {
@@ -1363,6 +1405,8 @@ function guardarPeriodo(i) {
     if (nombres.length !== 5) { alert('Tienen que ser exactamente 5 jugadores.'); return; }
     pr.alineacion[i] = nombres;
     pr.editados[i] = !(pr.orig[i] && pr.orig[i].length === 5 && pr.orig[i].every(n => nombres.includes(n)));
+    pr.pos[i] = Object.fromEntries([...document.querySelectorAll('.edP')].filter(x => nombres.includes(x.dataset.n) && +x.value).map(x => [x.dataset.n, +x.value]));
+    pr.coment[i] = $('edComent').value.trim();
     recontar(pr); saveState(); cerrarDlg(); renderPropuesta();
   } catch (e) { console.error(e); alert('No se ha podido guardar el cambio: ' + e.message); }
 }
@@ -1370,6 +1414,7 @@ function restaurarPeriodo(i) {
   try {
     const pr = appState.propuestaActual; normalizarPropuesta(pr);
     pr.alineacion[i] = [...pr.orig[i]]; pr.editados[i] = false;
+    pr.pos[i] = Object.fromEntries(Object.entries(pr.pos[i] || {}).filter(([n]) => pr.alineacion[i].includes(n)));
     recontar(pr); saveState(); cerrarDlg(); renderPropuesta();
   } catch (e) { console.error(e); alert('No se ha podido restaurar el periodo: ' + e.message); }
 }
@@ -1386,18 +1431,22 @@ function renderPropuesta() {
     $('resumenPropuesta').textContent = ''; $('avisosEdicion').style.display = 'none'; $('ayudaEdicion').style.display = 'none'; return;
   }
   const dors = n => (appState.jugadores.find(j => j.nombre === n) || {}).dorsal;
-  const tag = (n, big) => `<span class="tag"${big ? ' style="font-size:1.1em;padding:8px 12px"' : ''}>#${esc(dors(n) ?? '?')} ${esc(n.split(' ')[0])}</span>`;
+  normalizarPropuesta(pr);
+  const tag = (n, big, i) => { const ps = i === undefined ? 0 : posDe(pr, i, n); return `<span class="tag"${big ? ' style="font-size:1.1em;padding:8px 12px"' : ''}${ps ? ` title="${NUM_POS[ps]}"` : ''}>${ps ? `<span class="pn">${ps}</span>` : ''}#${esc(dors(n) ?? '?')} ${esc(n.split(' ')[0])}</span>`; };
+  const quinteto = (i, big) => ordenPos(pr, i, pr.alineacion[i]).map(n => tag(n, big, i)).join('');
+  const coment = i => (pr.coment[i] ? `<div class="coment">💬 ${esc(pr.coment[i])}</div>` : '');
+  const avP = i => { const t = avisoPos(pr, i); return t ? `<div class="muted" style="font-size:.8rem">⚠️ ${esc(t)}</div>` : ''; };
   const a = pr.actual || 0, sel = pr.alineacion[a], todos = appState.jugadores.filter(j => j.disponible).map(j => j.nombre);
   $('tituloRivalPropuesta').textContent = 'Rival: ' + pr.rival;
   $('tituloRivalPropuesta').textContent = 'Rival: ' + pr.rival + ' · Modo ' + (MODOS[pr.modo] || 'Equilibrio') + ' · ' + ((pr.seg === undefined ? 3 : pr.seg) ? 'máx. ' + (pr.seg === undefined ? 3 : pr.seg) + ' seguidos' : 'sin límite de seguidos');
   $('notaPropuesta').textContent = [pr.nota, (pr.ind || []).length ? '📌 Indicaciones: ' + pr.ind.map(textoInd).join('; ') + '.' : '', pr.info ? 'ℹ️ ' + pr.info : '', pr.aviso ? '⚠️ ' + pr.aviso : ''].filter(Boolean).join(' ');
-  $('periodoActual').innerHTML = `<h3 style="margin:0 0 8px">Periodo ${a + 1} de 8${pr.editados && pr.editados[a] ? ' ✏️ editado' : ''}</h3><div>${sel.map(n => tag(n, 1)).join('')}</div>` +
-    (a < 7 ? `<p class="muted" style="margin-top:8px">Siguiente: ${pr.alineacion[a + 1].map(n => tag(n)).join('')}</p>` : '') +
+  $('periodoActual').innerHTML = `<h3 style="margin:0 0 8px">Periodo ${a + 1} de 8${pr.editados && pr.editados[a] ? ' ✏️ editado' : ''}</h3><div>${quinteto(a, 1)}</div>${avP(a)}${coment(a)}` +
+    (a < 7 ? `<p class="muted" style="margin-top:8px">Siguiente: ${quinteto(a + 1)}</p>` : '') +
     (pr.rivalAlin ? `<p class="muted">Rival en la ida: ${pr.rivalAlin[a].map(d => '#' + d).join(' ')}</p>` : '') +
     `<p class="muted">Descansan: ${esc(todos.filter(n => !sel.includes(n)).map(n => n.split(' ')[0]).join(', ') || '–')}</p>` +
-    `<button class="blue" style="margin-top:6px" onclick="editarPeriodo(${a})">✏️ Cambiar jugadores de este periodo</button>`;
+    `<button class="blue" style="margin-top:6px" onclick="editarPeriodo(${a})">✏️ Jugadores, posiciones y comentario</button>`;
   $('contenedorPeriodos').innerHTML = pr.alineacion.map((p, i) =>
-    `<div class="box" style="cursor:pointer;${i === a ? 'border:2px solid var(--primary); background:var(--card)' : ''}" onclick="irPeriodo(${i})"><h4>Periodo ${i + 1}${pr.editados && pr.editados[i] ? ' ✏️' : ''}</h4>${p.map(n => tag(n)).join('')}${pr.rivalAlin ? `<div class="muted">Rival: ${pr.rivalAlin[i].map(d => '#' + d).join(' ')}</div>` : ''}<button class="blue" style="width:auto;padding:4px 10px;margin:8px 0 0" onclick="event.stopPropagation();editarPeriodo(${i})">✏️ Editar</button></div>`).join('');
+    `<div class="box" style="cursor:pointer;${i === a ? 'border:2px solid var(--primary); background:var(--card)' : ''}" onclick="irPeriodo(${i})"><h4>Periodo ${i + 1}${pr.editados && pr.editados[i] ? ' ✏️' : ''}</h4>${quinteto(i)}${avP(i)}${coment(i)}${pr.rivalAlin ? `<div class="muted">Rival: ${pr.rivalAlin[i].map(d => '#' + d).join(' ')}</div>` : ''}<button class="blue" style="width:auto;padding:4px 10px;margin:8px 0 0" onclick="event.stopPropagation();editarPeriodo(${i})">✏️ Editar</button></div>`).join('');
   $('resumenPropuesta').textContent = 'Periodos por jugador: ' + Object.entries(pr.conteo).map(([n, c]) => n.split(' ')[0] + ' ' + c).join(' · ');
   pintarAvisosEdicion(pr); $('ayudaEdicion').style.display = 'block';
 }
