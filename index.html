@@ -546,6 +546,9 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 const norm = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 const KEY = 'mini_alineaciones_db';
 const nuevoId = () => 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+/* Los jugadores se muestran siempre ordenados por dorsal. */
+const porDorsal = (a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0);
+const ordenarPlantilla = e => e.jugadores.sort((a, b) => porDorsal(a.dorsal, b.dorsal));
 const nuevoEquipo = nombre => ({id: nuevoId(), nombre, jugadores: [], partidos: [], propuestaActual: null, modo: 'eq', maxSeguidos: 3, indicaciones: []});
 
 /* Las claves antiguas se migran a las nuevas sin perder datos */
@@ -562,7 +565,7 @@ function aDb(d) {
 }
 function activar(d) {
   db = aDb(d);
-  db.equipos.forEach(e => { e.modo = e.modo || 'eq'; e.partidos = e.partidos || []; e.jugadores = e.jugadores || []; e.indicaciones = Array.isArray(e.indicaciones) ? e.indicaciones : []; e.jugadores.forEach(j => { if (j.disponible === undefined) j.disponible = true; }); normalizarPropuesta(e.propuestaActual); });
+  db.equipos.forEach(e => { e.modo = e.modo || 'eq'; e.partidos = e.partidos || []; e.jugadores = e.jugadores || []; e.indicaciones = Array.isArray(e.indicaciones) ? e.indicaciones : []; e.jugadores.forEach(j => { if (j.disponible === undefined) j.disponible = true; }); ordenarPlantilla(e); normalizarPropuesta(e.propuestaActual); });
   appState = db.equipos.find(e => e.id === db.activo) || db.equipos[0]; db.activo = appState.id;
 }
 
@@ -599,6 +602,7 @@ async function descifrar(env, pass) {
 }
 
 function saveState() {
+  db.equipos.forEach(ordenarPlantilla);
   try { localStorage.setItem(KEY, JSON.stringify(db)); }
   catch (e) { alert('No se han podido guardar los datos en este navegador.'); }
   setMeta({modificado: Date.now()});
@@ -930,7 +934,7 @@ const TIPOS_IND = {sep: 'No coinciden en pista', exacto: 'Juega exactamente X pe
 const yLista = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1] : (a[0] || '');
 const nomInd = n => { const j = appState.jugadores.find(x => x.nombre === n); return (j ? '#' + j.dorsal + ' ' : '') + n.split(' ')[0]; };
 function textoInd(r) {
-  const js = (r.jug || []).map(nomInd), pl = js.length > 1, quien = yLista(js), juega = pl ? 'juegan' : 'juega';
+  const js = [...(r.jug || [])].sort((x, y) => porDorsal(dorsalDe(x), dorsalDe(y))).map(nomInd), pl = js.length > 1, quien = yLista(js), juega = pl ? 'juegan' : 'juega';
   const per = [...(r.per || [])].sort((a, b) => a - b), pt = per.length > 1 ? 'los periodos ' + yLista(per.map(String)) : 'el periodo ' + per[0];
   const np = r.n + ' periodo' + (r.n === 1 ? '' : 's');
   return {sep: `${quien} no coinciden en pista`, exacto: `${quien} ${juega} exactamente ${np}`, max: `${quien} ${juega} como máximo ${np}`,
@@ -1323,7 +1327,8 @@ const NUM_POS = {1: 'Base', 2: 'Escolta', 3: 'Alero', 4: 'Ala-pívot', 5: 'Pívo
 const POS_A_NUM = {B: 1, E: 2, A: 3, AP: 4, P: 5};
 const posDe = (pr, i, n) => ((pr.pos || [])[i] || {})[n] || 0;
 /* Ordena el quinteto por posición (1 a 5); los que no tienen posición van al final. */
-const ordenPos = (pr, i, l) => [...l].sort((x, y) => (posDe(pr, i, x) || 9) - (posDe(pr, i, y) || 9));
+const dorsalDe = n => (appState.jugadores.find(j => j.nombre === n) || {}).dorsal;
+const ordenPos = (pr, i, l) => [...l].sort((x, y) => (posDe(pr, i, x) || 9) - (posDe(pr, i, y) || 9) || porDorsal(dorsalDe(x), dorsalDe(y)));
 function avisoPos(pr, i) {
   const ns = (pr.alineacion[i] || []).map(n => posDe(pr, i, n)).filter(Boolean);
   if (!ns.length) return '';
@@ -1442,12 +1447,12 @@ function renderPropuesta() {
   $('notaPropuesta').textContent = [pr.nota, (pr.ind || []).length ? '📌 Indicaciones: ' + pr.ind.map(textoInd).join('; ') + '.' : '', pr.info ? 'ℹ️ ' + pr.info : '', pr.aviso ? '⚠️ ' + pr.aviso : ''].filter(Boolean).join(' ');
   $('periodoActual').innerHTML = `<h3 style="margin:0 0 8px">Periodo ${a + 1} de 8${pr.editados && pr.editados[a] ? ' ✏️ editado' : ''}</h3><div>${quinteto(a, 1)}</div>${avP(a)}${coment(a)}` +
     (a < 7 ? `<p class="muted" style="margin-top:8px">Siguiente: ${quinteto(a + 1)}</p>` : '') +
-    (pr.rivalAlin ? `<p class="muted">Rival en la ida: ${pr.rivalAlin[a].map(d => '#' + d).join(' ')}</p>` : '') +
+    (pr.rivalAlin ? `<p class="muted">Rival en la ida: ${[...pr.rivalAlin[a]].sort(porDorsal).map(d => '#' + d).join(' ')}</p>` : '') +
     `<p class="muted">Descansan: ${esc(todos.filter(n => !sel.includes(n)).map(n => n.split(' ')[0]).join(', ') || '–')}</p>` +
     `<button class="blue" style="margin-top:6px" onclick="editarPeriodo(${a})">✏️ Jugadores, posiciones y comentario</button>`;
   $('contenedorPeriodos').innerHTML = pr.alineacion.map((p, i) =>
-    `<div class="box" style="cursor:pointer;${i === a ? 'border:2px solid var(--primary); background:var(--card)' : ''}" onclick="irPeriodo(${i})"><h4>Periodo ${i + 1}${pr.editados && pr.editados[i] ? ' ✏️' : ''}</h4>${quinteto(i)}${avP(i)}${coment(i)}${pr.rivalAlin ? `<div class="muted">Rival: ${pr.rivalAlin[i].map(d => '#' + d).join(' ')}</div>` : ''}<button class="blue" style="width:auto;padding:4px 10px;margin:8px 0 0" onclick="event.stopPropagation();editarPeriodo(${i})">✏️ Editar</button></div>`).join('');
-  $('resumenPropuesta').textContent = 'Periodos por jugador: ' + Object.entries(pr.conteo).map(([n, c]) => n.split(' ')[0] + ' ' + c).join(' · ');
+    `<div class="box" style="cursor:pointer;${i === a ? 'border:2px solid var(--primary); background:var(--card)' : ''}" onclick="irPeriodo(${i})"><h4>Periodo ${i + 1}${pr.editados && pr.editados[i] ? ' ✏️' : ''}</h4>${quinteto(i)}${avP(i)}${coment(i)}${pr.rivalAlin ? `<div class="muted">Rival: ${[...pr.rivalAlin[i]].sort(porDorsal).map(d => '#' + d).join(' ')}</div>` : ''}<button class="blue" style="width:auto;padding:4px 10px;margin:8px 0 0" onclick="event.stopPropagation();editarPeriodo(${i})">✏️ Editar</button></div>`).join('');
+  $('resumenPropuesta').textContent = 'Periodos por jugador: ' + Object.entries(pr.conteo).sort(([x], [y]) => porDorsal(dorsalDe(x), dorsalDe(y))).map(([n, c]) => n.split(' ')[0] + ' ' + c).join(' · ');
   pintarAvisosEdicion(pr); $('ayudaEdicion').style.display = 'block';
 }
 
@@ -1477,7 +1482,7 @@ function renderRivalActa() {
   const par = x.par ? `<div class="wrap"><table><thead><tr><th></th>${[1,2,3,4,5,6,7,8].map(n => `<th>${n}</th>`).join('')}<th>Total</th></tr></thead><tbody>
     <tr><td class="l">${esc(appState.nombre)}</td>${x.par.f.map(v => `<td>${v}</td>`).join('')}<td><b>${sum(x.par.f)}</b></td></tr>
     <tr><td class="l">Rival</td>${x.par.c.map(v => `<td>${v}</td>`).join('')}<td><b>${sum(x.par.c)}</b></td></tr></tbody></table></div>` : '';
-  const jug = `<div class="wrap"><table><thead><tr><th>#</th><th>Jugador rival</th><th>Periodos</th><th>Pts</th></tr></thead><tbody>${x.rivalJug.map(j =>
+  const jug = `<div class="wrap"><table><thead><tr><th>#</th><th>Jugador rival</th><th>Periodos</th><th>Pts</th></tr></thead><tbody>${[...x.rivalJug].sort((a, b) => porDorsal(a.dorsal, b.dorsal)).map(j =>
     `<tr><td>${esc(j.dorsal)}</td><td class="l">${esc(j.nombre)}</td><td>${j.periodos.length}</td><td>${j.pts}</td></tr>`).join('')}</tbody></table></div>`;
   el.innerHTML = `<div class="card"><h3>Datos del rival (extraídos del acta)</h3>${par}${jug}</div>`;
 }
@@ -1621,6 +1626,7 @@ function proponerAltas(r, faltan) {
     if (k >= 0) usados.add(k);
     return {m, k};
   });
+  filas.sort((a, b) => porDorsal(a.m.dorsal, b.m.dorsal));
   actaPend = {r, filas};
   const n = filas.length;
   abrirDlg(`<h3>Jugadores del acta</h3>
@@ -1712,11 +1718,12 @@ function renderHistorico() {
   $('listaHistorico').innerHTML = appState.partidos.map((p, i) => [p, i]).reverse().map(([p, i]) => {
     const [a, b] = p.pf !== undefined ? [p.pf, p.pr] : p.resultado.split('-').map(Number);
     const [txt, col] = a > b ? ['Victoria', 'var(--ok)'] : a < b ? ['Derrota', 'var(--bad)'] : ['Empate', 'var(--text-muted)'];
-    const filas = appState.jugadores.filter(j => (p.periodos || {})[j.nombre] !== undefined)
+    const dP = j => (p.dorsales || {})[j.nombre] ?? j.dorsal;
+    const filas = appState.jugadores.filter(j => (p.periodos || {})[j.nombre] !== undefined).sort((x, y) => porDorsal(dP(x), dP(y)))
       .map(j => `<tr><td class="l">#${esc((p.dorsales || {})[j.nombre] ?? j.dorsal)} ${esc(j.nombre)}</td><td>${p.periodos[j.nombre]}</td><td>${(p.puntos || {})[j.nombre] || 0}</td></tr>`).join('');
     const par = p.par ? `<p class="muted">Parciales: ${p.par.f.map((f, k) => f + '-' + p.par.c[k]).join(' · ')}</p>` : '';
     const rj = (p.rivalJug || []).filter(j => j.pts > 0).sort((x, y) => y.pts - x.pts);
-    const riv = rj.length ? `<details><summary>Jugadores del rival</summary><div class="wrap"><table><thead><tr><th>#</th><th>Jugador</th><th>Periodos</th><th>Pts</th></tr></thead><tbody>${(p.rivalJug || []).map(j => `<tr><td>${esc(j.dorsal)}</td><td class="l">${esc(j.nombre)}</td><td>${j.periodos.length}</td><td>${j.pts}</td></tr>`).join('')}</tbody></table></div></details>` : '';
+    const riv = rj.length ? `<details><summary>Jugadores del rival</summary><div class="wrap"><table><thead><tr><th>#</th><th>Jugador</th><th>Periodos</th><th>Pts</th></tr></thead><tbody>${[...(p.rivalJug || [])].sort((a, b) => porDorsal(a.dorsal, b.dorsal)).map(j => `<tr><td>${esc(j.dorsal)}</td><td class="l">${esc(j.nombre)}</td><td>${j.periodos.length}</td><td>${j.pts}</td></tr>`).join('')}</tbody></table></div></details>` : '';
     return `<div class="card" style="border-left:4px solid ${col}">
       <h4>vs ${esc(p.rival)} <span class="muted" style="font-weight:400; font-size:0.8em">(${esc(p.fecha)})</span></h4>
       <p style="margin:8px 0"><span class="badge" style="background:${col}">${txt}</span> ${esc(appState.nombre)} <b>${a} - ${b}</b></p>${par}
