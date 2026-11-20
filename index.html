@@ -565,7 +565,7 @@ function aDb(d) {
 }
 function activar(d) {
   db = aDb(d);
-  db.equipos.forEach(e => { e.modo = e.modo || 'eq'; e.partidos = e.partidos || []; e.jugadores = e.jugadores || []; e.indicaciones = Array.isArray(e.indicaciones) ? e.indicaciones : []; e.jugadores.forEach(j => { if (j.disponible === undefined) j.disponible = true; }); ordenarPlantilla(e); normalizarPropuesta(e.propuestaActual); });
+  db.equipos.forEach(e => { e.modo = e.modo || 'eq'; e.partidos = e.partidos || []; e.jugadores = e.jugadores || []; e.indicaciones = Array.isArray(e.indicaciones) ? e.indicaciones : []; e.jugadores.forEach(j => { if (j.disponible === undefined) j.disponible = true; }); ordenarPlantilla(e); normalizarPropuesta(e.propuestaActual, e.jugadores); });
   appState = db.equipos.find(e => e.id === db.activo) || db.equipos[0]; db.activo = appState.id;
 }
 
@@ -836,6 +836,7 @@ function guardarJugador(i) {
 }
 
 function abrirVuelta(i) {
+  vueltaI = i;
   const p = appState.partidos[i], modo = MODOS[appState.modo] ? appState.modo : 'eq';
   abrirDlg(`<h3>Alineación de vuelta</h3>
     <p class="muted">vs ${esc(p.rivalNombre || p.rival)} · Ida: ${esc(p.resultado)}</p>
@@ -845,11 +846,23 @@ function abrirVuelta(i) {
     <label><b>Jugadores que cuentan para esta propuesta</b></label>
     ${appState.jugadores.map((j, k) => `<label class="opt"><input type="checkbox" class="chk vJug" data-k="${k}" ${j.disponible ? 'checked' : ''} onchange="contarVuelta()"><span><b>#${esc(j.dorsal)}</b> ${esc(j.nombre)}</span></label>`).join('') || '<p class="muted">No hay jugadores en la plantilla.</p>'}
     <p class="muted">¿Falta alguien? Añádelo antes en la pestaña Plantilla.</p>
-    ${(appState.indicaciones || []).some(r => r.on !== false) ? '<p class="muted">📌 Se aplicarán tus indicaciones de la pestaña Plantilla.</p>' : ''}
     <p class="muted" id="vCuenta"></p>
+    <label style="display:block;margin-top:12px"><b>Indicaciones</b></label>
+    <div id="listaIndV"></div>
+    <button class="blue" style="width:auto;padding:4px 10px" onclick="indDesdeVuelta(${i}, -1)">Añadir indicación</button>
     <div class="row"><button class="blue" onclick="cerrarDlg()">Cancelar</button><button class="main" onclick="lanzarVuelta(${i})">Generar</button></div>`);
-  contarVuelta();
+  const t = vueltaTmp; vueltaTmp = null;
+  if (t && t.i === i) { $('vModo').value = t.modo; $('vDesc').textContent = DESC_MODO[t.modo]; document.querySelectorAll('.vJug').forEach(c => { c.checked = t.on.includes(+c.dataset.k); }); }
+  renderIndicaciones(); contarVuelta();
 }
+/* Desde la alineación de vuelta se pueden añadir o editar indicaciones; al guardarlas se vuelve al diálogo sin perder lo marcado. */
+let vueltaTmp = null, volverInd = null, vueltaI = 0;
+function indDesdeVuelta(i, idx) {
+  vueltaTmp = {i, modo: $('vModo').value, on: [...document.querySelectorAll('.vJug:checked')].map(c => +c.dataset.k)};
+  volverInd = () => abrirVuelta(i);
+  indicacionDlg(idx);
+}
+function salirInd() { const f = volverInd; volverInd = null; if (f) f(); else cerrarDlg(); }
 
 function contarVuelta() {
   const n = document.querySelectorAll('.vJug:checked').length, L = seguidos(), min = minJugadores(L), m = reglaConvocatoria(n);
@@ -981,14 +994,17 @@ function incumpleInd(r, al) {
 }
 
 function renderIndicaciones() {
-  const el = $('listaInd'); if (!el) return;
+  if ($('listaInd')) pintarInd($('listaInd'), false);
+  if ($('listaIndV')) pintarInd($('listaIndV'), true);
+}
+function pintarInd(el, vuelta) {
   const L = appState.indicaciones || [];
   el.innerHTML = L.length ? L.map((r, i) => {
     const fuera = (r.jug || []).filter(n => !appState.jugadores.some(j => j.nombre === n && j.disponible));
     const nota = fuera.length ? `<br><small class="muted">No disponible${fuera.length > 1 ? 's' : ''}: ${esc(fuera.map(nomInd).join(', '))}${r.tipo === 'sep' && r.jug.length - fuera.length < 2 || r.jug.length === fuera.length ? ' · ahora no se aplica' : ''}</small>` : '';
     return `<div class="ind${r.on === false ? ' off' : ''}"><input type="checkbox" class="chk" aria-label="Aplicar indicación" ${r.on === false ? '' : 'checked'} onchange="appState.indicaciones[${i}].on=this.checked;saveState();renderIndicaciones()">
       <span>${esc(textoInd(r))}${nota}</span>
-      <button class="blue" onclick="indicacionDlg(${i})">Editar</button><button class="danger" aria-label="Eliminar indicación" onclick="borrarInd(${i})">X</button></div>`;
+      <button class="blue" onclick="${vuelta ? `indDesdeVuelta(vueltaI, ${i})` : `indicacionDlg(${i})`}">Editar</button><button class="danger" aria-label="Eliminar indicación" onclick="borrarInd(${i})">X</button></div>`;
   }).join('') : '<p class="muted" style="margin:0 0 8px">Sin indicaciones.</p>';
 }
 
@@ -1005,7 +1021,7 @@ function indicacionDlg(idx) {
     <div id="inPerW"><label><b>Periodos</b></label>
       <div class="chips" id="inPer">${[1, 2, 3, 4, 5, 6, 7, 8].map(x => `<label class="chipc"><input type="checkbox" value="${x}" ${(r.per || []).includes(x) ? 'checked' : ''}><span>${x}º</span></label>`).join('')}</div></div>
     <p class="muted" id="inNorma"></p>
-    <div class="row"><button class="blue" onclick="cerrarDlg()">Cancelar</button><button class="main" onclick="guardarInd(${idx})">Guardar</button></div>`);
+    <div class="row"><button class="blue" onclick="salirInd()">Cancelar</button><button class="main" onclick="guardarInd(${idx})">Guardar</button></div>`);
   pintarCamposInd();
 }
 function pintarCamposInd() {
@@ -1026,7 +1042,7 @@ function guardarInd(idx) {
   if (!['exacto', 'max', 'min'].includes(tipo)) delete r.n;
   appState.indicaciones = appState.indicaciones || [];
   if (idx >= 0) appState.indicaciones[idx] = r; else appState.indicaciones.push(r);
-  saveState(); cerrarDlg(); renderIndicaciones();
+  saveState(); salirInd(); renderIndicaciones();
 }
 function borrarInd(i) {
   if (!confirm('¿Eliminar la indicación «' + textoInd(appState.indicaciones[i]) + '»?')) return;
@@ -1111,20 +1127,20 @@ function cumple(al, disp, cfg, m6) {
 /* Puntuación de una propuesta: pone a los mejores en los periodos que más pesan, pero cada periodo debe quedar
    proporcional a su peso (que no haya periodos con todos los flojos juntos): se penaliza alejarse de la fuerza objetivo
    de cada periodo y, con más dureza, quedar por debajo del 85 % de ella. */
-/* Preferencia de posiciones: que haya un base y un jugador interior (ala-pívot o pívot) en pista cuando la plantilla los tiene */
-let POS = {m: {}, base: false, int: false};
+/* Preferencia de posiciones: que en cada periodo haya jugadores para las 5 posiciones (1 a 5) según su ficha */
+let POS = {hay: false, js: [], cache: new Map()};
 function penalCobertura(l) {
-  let p = 0;
-  if (POS.base && !l.some(n => (POS.m[n] || []).includes('B'))) p++;
-  if (POS.int && !l.some(n => (POS.m[n] || []).some(k => k === 'AP' || k === 'P'))) p++;
-  return p;
+  if (!POS.hay) return 0;
+  const k = [...l].sort().join('|');
+  if (!POS.cache.has(k)) POS.cache.set(k, asignarPos(l, POS.js).falta);
+  return POS.cache.get(k);
 }
 
 function puntuar(al, v, pesos) {
   const L = al.map(l => l.reduce((s, n) => s + v[n], 0)), m = L.reduce((a, b) => a + b, 0) / 8, wm = pesos.reduce((a, b) => a + b, 0) / 8;
   let J = 0;
   L.forEach((x, p) => { const t = m * pesos[p] / wm; J += pesos[p] * x - (x - t) * (x - t) - 5 * Math.max(0, 0.85 * t - x) ** 2; });
-  return J - 1.5 * al.reduce((s, l) => s + penalCobertura(l), 0);
+  return J - 12 * al.reduce((s, l) => s + penalCobertura(l), 0);
 }
 
 /* Mejora una propuesta válida con cambios pequeños (intercambiar dos jugadores entre periodos, o sustituir uno por quien descansa)
@@ -1226,8 +1242,7 @@ function reparto(nombres, modo, I, h) {
 function optimizar(disp, pesos) {
   const val = valorJugador(), v = {};
   disp.forEach(j => v[j.nombre] = val(j));
-  POS = {m: {}, base: false, int: false};
-  disp.forEach(j => { const ps = j.posiciones || []; POS.m[j.nombre] = ps; if (ps.includes('B')) POS.base = true; if (ps.some(k => k === 'AP' || k === 'P')) POS.int = true; });
+  POS = {hay: disp.some(j => (j.posiciones || []).length), js: disp, cache: new Map()};
   const res = {}; disp.forEach(j => { if (j.resistencia >= 1) res[j.nombre] = j.resistencia; });
   const hayRes = Object.keys(res).length, R = hayRes ? {res} : {};
   const modo = MODOS[appState.modo] ? appState.modo : 'eq', N = disp.length, nombres = disp.map(j => j.nombre);
@@ -1276,7 +1291,9 @@ function crearPropuesta(rival, pesos, nota, rivalAlin) {
   const prev = appState.propuestaActual;
   if (prev && ((prev.editados && prev.editados.some(Boolean)) || tienePosOComent(prev)) && !confirm('Tienes cambios manuales, posiciones o comentarios en la propuesta actual y se perderán. ¿Continuar?')) return;
   const r = optimizar(disp, pesos);
-  appState.propuestaActual = {rival, alineacion: r.al, conteo: r.cnt, pesos, nota, aviso: r.aviso, info: r.info || '', rivalAlin: rivalAlin || null, modo: appState.modo || 'eq', seg: seguidos(), ind: JSON.parse(JSON.stringify((appState.indicaciones || []).filter(x => x.on !== false))), orig: r.al.map(l => [...l]), editados: Array(8).fill(false), coment: Array(8).fill(''), pos: Array.from({length: 8}, () => ({})), actual: 0};
+  appState.propuestaActual = {rival, alineacion: r.al, conteo: r.cnt, pesos, nota, aviso: r.aviso, info: r.info || '', rivalAlin: rivalAlin || null, modo: appState.modo || 'eq', seg: seguidos(), ind: JSON.parse(JSON.stringify((appState.indicaciones || []).filter(x => x.on !== false))), orig: r.al.map(l => [...l]), editados: Array(8).fill(false), coment: Array(8).fill(''), pos: r.al.map(l => asignarPos(l).pos), actual: 0};
+  const sinPos = r.al.map((l, k) => asignarPos(l).falta ? k + 1 : 0).filter(Boolean);
+  if (sinPos.length && disp.some(j => (j.posiciones || []).length)) appState.propuestaActual.info = [appState.propuestaActual.info, `Posiciones: con los jugadores disponibles no he podido cubrir las 5 posiciones según la ficha en ${sinPos.length > 1 ? 'los periodos ' + yLista(sinPos.map(String)) : 'el periodo ' + sinPos[0]}; he asignado a alguien fuera de su posición.`].filter(Boolean).join(' ');
   const todas = revisarPropuesta(appState.propuestaActual), rv = todas.filter(a => a.includes('resistencia')), ri = todas.filter(a => a.startsWith('Indicación'));
   if (rv.length) appState.propuestaActual.aviso = (appState.propuestaActual.aviso ? appState.propuestaActual.aviso + ' ' : '') + 'Resistencia: ' + rv.join('; ') + '.';
   if (ri.length) appState.propuestaActual.aviso = (appState.propuestaActual.aviso ? appState.propuestaActual.aviso + ' ' : '') + ri.join('; ') + '.';
@@ -1314,18 +1331,38 @@ function generarVuelta(i) {
 
 /* ---------- Editar la propuesta a mano ---------- */
 /* Las propuestas guardadas por versiones anteriores no tienen los campos de edición: se completan con lo que hay. */
-function normalizarPropuesta(pr) {
+function normalizarPropuesta(pr, jugadores) {
   if (!pr || !Array.isArray(pr.alineacion)) return;
   if (!Array.isArray(pr.orig) || pr.orig.length !== 8) pr.orig = pr.alineacion.map(l => [...l]);
   if (!Array.isArray(pr.editados) || pr.editados.length !== 8) pr.editados = Array(8).fill(false);
   if (!pr.conteo) pr.conteo = {};
   if (!Array.isArray(pr.coment) || pr.coment.length !== 8) pr.coment = Array(8).fill('');
   if (!Array.isArray(pr.pos) || pr.pos.length !== 8) pr.pos = Array.from({length: 8}, () => ({}));
+  pr.alineacion.forEach((l, i) => { if (l.length === 5 && !Object.keys(pr.pos[i] || {}).length) pr.pos[i] = asignarPos(l, jugadores).pos; });
 }
 /* Posiciones de juego por periodo: 1 Base, 2 Escolta, 3 Alero, 4 Ala-pívot, 5 Pívot (pr.pos[periodo][nombre] = 1..5). */
 const NUM_POS = {1: 'Base', 2: 'Escolta', 3: 'Alero', 4: 'Ala-pívot', 5: 'Pívot'};
 const POS_A_NUM = {B: 1, E: 2, A: 3, AP: 4, P: 5};
 const posDe = (pr, i, n) => ((pr.pos || [])[i] || {})[n] || 0;
+/* Reparte las posiciones 1 a 5 entre los 5 jugadores del quinteto, una distinta para cada uno, intentando que cada jugador
+   ocupe una posición de su ficha (mejor la primera que tiene marcada). Los jugadores sin posiciones en la ficha valen para cualquiera.
+   Devuelve {pos: {nombre: 1..5}, falta: posiciones que nadie de su ficha puede ocupar}. */
+const PERMS5 = (() => { const out = [], f = (a, r) => r.length ? r.forEach((x, k) => f([...a, x], r.filter((_, q) => q !== k))) : out.push(a); f([], [1, 2, 3, 4, 5]); return out; })();
+function asignarPos(l, jugadores, fijas) {
+  const js = jugadores || (appState && appState.jugadores) || [];
+  const pref = l.map(n => ((js.find(j => j.nombre === n) || {}).posiciones || []).map(k => POS_A_NUM[k]).filter(Boolean));
+  let best = null, bs = -1, bf = 9;
+  for (const pm of PERMS5) {
+    let sc = 0, fa = 0;
+    for (let k = 0; k < l.length; k++) {
+      const pf = pref[k], x = pm[k];
+      if (fijas && fijas[l[k]] && fijas[l[k]] !== x) { sc = -1e9; break; }
+      if (!pf.length) sc += 2; else { const q = pf.indexOf(x); if (q < 0) fa++; else sc += q === 0 ? 3 : 2; }
+    }
+    if (fa < bf || (fa === bf && sc > bs)) { bf = fa; bs = sc; best = pm; }
+  }
+  return {pos: Object.fromEntries(l.map((n, k) => [n, best[k]])), falta: bf};
+}
 /* Ordena el quinteto por posición (1 a 5); los que no tienen posición van al final. */
 const dorsalDe = n => (appState.jugadores.find(j => j.nombre === n) || {}).dorsal;
 const ordenPos = (pr, i, l) => [...l].sort((x, y) => (posDe(pr, i, x) || 9) - (posDe(pr, i, y) || 9) || porDorsal(dorsalDe(x), dorsalDe(y)));
@@ -1335,7 +1372,7 @@ function avisoPos(pr, i) {
   const rep = [...new Set(ns.filter((x, k) => ns.indexOf(x) !== k))], falta = [1, 2, 3, 4, 5].filter(x => !ns.includes(x));
   return [rep.length ? 'posición ' + rep.join(', ') + ' repetida' : '', ns.length === 5 && falta.length ? 'sin ' + falta.join(', ') : ''].filter(Boolean).join(' · ');
 }
-function tienePosOComent(pr) { return !!pr && ((pr.coment || []).some(c => c && c.trim()) || (pr.pos || []).some(o => o && Object.keys(o).length)); }
+function tienePosOComent(pr) { return !!pr && ((pr.coment || []).some(c => c && c.trim()) || !!pr.posEdit); }
 function recontar(pr) {
   const c = {};
   appState.jugadores.filter(j => j.disponible).forEach(j => { c[j.nombre] = 0; });
@@ -1391,8 +1428,18 @@ function contarEdicion() {
   const on = new Set([...document.querySelectorAll('.edJ')].filter(c => c.checked).map(c => c.dataset.n));
   const ps = [...document.querySelectorAll('.edP')];
   ps.forEach(sel => { sel.disabled = !on.has(sel.dataset.n); });
+  if (n === 5) completarPos();
   const ns = ps.filter(x => !x.disabled && +x.value).map(x => +x.value), rep = [...new Set(ns.filter((x, k) => ns.indexOf(x) !== k))];
   $('edPosAviso').textContent = rep.length ? '⚠️ Posición ' + rep.join(', ') + ' asignada a más de un jugador (puedes guardarlo igualmente).' : '';
+}
+/* Con 5 en pista, quien no tiene posición recibe una libre (la de su ficha si se puede), sin tocar las ya elegidas. */
+function completarPos() {
+  const ps = [...document.querySelectorAll('.edP')].filter(x => !x.disabled);
+  if (!ps.some(x => !+x.value)) return;
+  const fijas = Object.fromEntries(ps.filter(x => +x.value).map(x => [x.dataset.n, +x.value]));
+  if (new Set(Object.values(fijas)).size !== Object.keys(fijas).length) return;
+  const a = asignarPos(ps.map(x => x.dataset.n), null, fijas).pos;
+  ps.forEach(x => { x.value = a[x.dataset.n]; });
 }
 /* Propone una posición distinta (1-5) para cada jugador en pista según las posiciones de su ficha; no toca las ya elegidas. */
 function sugerirPos() {
@@ -1410,7 +1457,9 @@ function guardarPeriodo(i) {
     if (nombres.length !== 5) { alert('Tienen que ser exactamente 5 jugadores.'); return; }
     pr.alineacion[i] = nombres;
     pr.editados[i] = !(pr.orig[i] && pr.orig[i].length === 5 && pr.orig[i].every(n => nombres.includes(n)));
-    pr.pos[i] = Object.fromEntries([...document.querySelectorAll('.edP')].filter(x => nombres.includes(x.dataset.n) && +x.value).map(x => [x.dataset.n, +x.value]));
+    const nuevas = Object.fromEntries([...document.querySelectorAll('.edP')].filter(x => nombres.includes(x.dataset.n) && +x.value).map(x => [x.dataset.n, +x.value]));
+    if (JSON.stringify(nuevas) !== JSON.stringify(asignarPos(nombres).pos)) pr.posEdit = true;
+    pr.pos[i] = nuevas;
     pr.coment[i] = $('edComent').value.trim();
     recontar(pr); saveState(); cerrarDlg(); renderPropuesta();
   } catch (e) { console.error(e); alert('No se ha podido guardar el cambio: ' + e.message); }
@@ -1419,7 +1468,7 @@ function restaurarPeriodo(i) {
   try {
     const pr = appState.propuestaActual; normalizarPropuesta(pr);
     pr.alineacion[i] = [...pr.orig[i]]; pr.editados[i] = false;
-    pr.pos[i] = Object.fromEntries(Object.entries(pr.pos[i] || {}).filter(([n]) => pr.alineacion[i].includes(n)));
+    pr.pos[i] = asignarPos(pr.alineacion[i], null, Object.fromEntries(Object.entries(pr.pos[i] || {}).filter(([n]) => pr.alineacion[i].includes(n)))).pos;
     recontar(pr); saveState(); cerrarDlg(); renderPropuesta();
   } catch (e) { console.error(e); alert('No se ha podido restaurar el periodo: ' + e.message); }
 }
